@@ -2,6 +2,7 @@
 
 #include "keyboard/input_event.h"
 #include "move_aggregator.h"
+#include "networking/discovery/discovery.h"
 
 #include <atomic>
 #include <chrono>
@@ -14,7 +15,24 @@ namespace flows
 
   int run_sender(const cli::Options& opt, net::Server& server, keyboard::Keyboard& kb)
   {
-    auto s = server.createSender(opt.ip, opt.port);
+    std::string ip = opt.ip;
+    if (ip.empty())
+    {
+      // Try to discover a server on the local network
+      auto results = net::discovery::discover(opt.port, 1200);
+      if (!results.empty())
+      {
+        ip = results.front().ip;
+        std::cerr << "[discovery] Using discovered server: " << ip << ":" << opt.port << std::endl;
+      }
+      else
+      {
+        std::cerr << "[discovery] No server found on the local network. Provide --ip to specify target." << std::endl;
+        return 2;
+      }
+    }
+
+    auto s = server.createSender(ip, opt.port);
     auto listener = kb.createListener();
     net::Sender* sender_ptr = s.get();
 

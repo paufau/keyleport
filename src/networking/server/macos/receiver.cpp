@@ -2,6 +2,8 @@
 
 #include "networking/server/receiver.h"
 
+#include "networking/discovery/discovery.h"
+
 #include <arpa/inet.h>
 #include <cstring>
 #include <functional>
@@ -80,6 +82,12 @@ namespace net
     void onReceive(ReceiveHandler handler) override { handler_ = std::move(handler); }
     int run() override
     {
+      // Start UDP discovery responder for clients with no configured IP
+      auto responder = discovery::make_responder(port_, "keyleport");
+      if (responder)
+      {
+        responder->start_async();
+      }
       SocketHandle sock = listen_tcp(port_);
       SocketHandle udp = listen_udp(port_);
       if (sock < 0 && udp < 0)
