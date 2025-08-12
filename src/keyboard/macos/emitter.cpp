@@ -1,5 +1,6 @@
 #include <memory>
 #include <string>
+#include <iostream>
 
 #include "../emitter.h"
 
@@ -11,7 +12,13 @@ namespace keyboard
   public:
     int emit(const InputEvent &event) override
     {
-      (void)event;
+      std::cout << "[macos emitter] type=" << static_cast<int>(event.type)
+                << " action=" << static_cast<int>(event.action)
+                << " code=" << event.code
+                << " x=" << event.x
+                << " y=" << event.y
+                << " delta=" << event.delta
+                << std::endl;
       return 0;
     }
   };
