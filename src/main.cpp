@@ -6,6 +6,10 @@
 #include "keyboard/keyboard.h"
 #include "keyboard/input_event.h"
 #include <sstream>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <chrono>
 
 int main(int argc, char *argv[])
 {
@@ -62,11 +66,63 @@ int main(int argc, char *argv[])
   auto listener = kb->createListener();
 
   net::Sender *sender_ptr = s.get();
-  listener->onEvent([sender_ptr](const keyboard::InputEvent &ev)
+
+  // Aggregator for mouse move coalescing
+  struct MoveAggregator
+  {
+    std::atomic<bool> running{true};
+    std::mutex m;
+    int agg_dx{0};
+    int agg_dy{0};
+    void add(int dx, int dy)
+    {
+      if (dx == 0 && dy == 0)
+        return;
+      std::lock_guard<std::mutex> lock(m);
+      agg_dx += dx;
+      agg_dy += dy;
+    }
+    void take(int &dx, int &dy)
+    {
+      std::lock_guard<std::mutex> lock(m);
+      dx = agg_dx;
+      dy = agg_dy;
+      agg_dx = 0;
+      agg_dy = 0;
+    }
+  } aggregator;
+
+  // Background sender that flushes aggregated movement every 3 ms via UDP
+  std::thread moveSender([&]()
+                         {
+    using namespace std::chrono;
+    while (aggregator.running.load(std::memory_order_relaxed)) {
+      std::this_thread::sleep_for(milliseconds(3));
+      int dx = 0, dy = 0;
+      aggregator.take(dx, dy);
+      if (dx == 0 && dy == 0) continue;
+      keyboard::InputEvent mv{};
+      mv.type = keyboard::InputEvent::Type::Mouse;
+      mv.action = keyboard::InputEvent::Action::Move;
+      mv.code = 0;
+      mv.dx = dx;
+      mv.dy = dy;
+      const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
+      std::cerr << "[sender] via UDP (coalesced move): " << payload << std::endl;
+      sender_ptr->send_udp(payload);
+    } });
+
+  listener->onEvent([sender_ptr, &aggregator](const keyboard::InputEvent &ev)
                     {
-    const bool use_udp = (ev.type == keyboard::InputEvent::Type::Mouse && (ev.action == keyboard::InputEvent::Action::Move || ev.action == keyboard::InputEvent::Action::Scroll));
+    // Coalesce mouse Move events: accumulate and send on a 3 ms cadence via background thread
+    if (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Move) {
+      aggregator.add(ev.dx, ev.dy);
+      return;
+    }
+
+    // All other events are sent immediately (Scroll over UDP, rest over TCP)
+    const bool use_udp = (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Scroll);
     const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-    // Debug: show send path and payload
     std::cerr << "[sender] via " << (use_udp ? "UDP" : "TCP") << ": " << payload << std::endl;
     if (use_udp) {
       sender_ptr->send_udp(payload);
@@ -74,5 +130,9 @@ int main(int argc, char *argv[])
       sender_ptr->send_tcp(payload);
     } });
 
-  return listener->run();
+  int rc = listener->run();
+  aggregator.running.store(false, std::memory_order_relaxed);
+  if (moveSender.joinable())
+    moveSender.join();
+  return rc;
 }
