@@ -20,13 +20,8 @@ else()
   list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/(macos|windows)/.*\\.cpp$")
 endif()
 
-# Always include all cross-platform C++ sources from any subdirectory under src
-file(GLOB_RECURSE EXTRA_SOURCES CONFIGURE_DEPENDS
-  ${CMAKE_SOURCE_DIR}/src/*/cxx/*.cpp
-)
-
 # If a platform-specific implementation exists (macos on APPLE, windows on WIN32)
-# remove the cxx fallback with the same filename from EXTRA_SOURCES.
+# remove the cxx fallback with the same filename from KEYLEPORT_SOURCES.
 set(PLATFORM_DIR "")
 if(APPLE)
   set(PLATFORM_DIR "macos")
@@ -35,22 +30,22 @@ elseif(WIN32)
 endif()
 if(PLATFORM_DIR)
   file(GLOB_RECURSE PLATFORM_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/src/*/${PLATFORM_DIR}/*.cpp)
+  ${CMAKE_SOURCE_DIR}/src/**/${PLATFORM_DIR}/*.cpp)
   set(PLATFORM_BASENAMES)
   foreach(PSRC IN LISTS PLATFORM_SOURCES)
     get_filename_component(_base ${PSRC} NAME)
     list(APPEND PLATFORM_BASENAMES ${_base})
   endforeach()
-  foreach(CXXSRC IN LISTS EXTRA_SOURCES)
-    get_filename_component(_cxxbase ${CXXSRC} NAME)
-    if(_cxxbase IN_LIST PLATFORM_BASENAMES)
-      list(REMOVE_ITEM EXTRA_SOURCES ${CXXSRC})
+  # Remove any cxx fallback file that has a platform-specific counterpart
+  foreach(SRC IN LISTS KEYLEPORT_SOURCES)
+    if(SRC MATCHES ".*/cxx/.*\\.cpp$")
+      get_filename_component(_cxxbase ${SRC} NAME)
+      if(_cxxbase IN_LIST PLATFORM_BASENAMES)
+        list(REMOVE_ITEM KEYLEPORT_SOURCES ${SRC})
+      endif()
     endif()
   endforeach()
 endif()
-
-list(APPEND KEYLEPORT_SOURCES ${EXTRA_SOURCES})
-list(REMOVE_DUPLICATES KEYLEPORT_SOURCES)
 
 add_executable(keyleport ${KEYLEPORT_SOURCES})
 

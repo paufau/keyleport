@@ -4,10 +4,8 @@ set -euo pipefail
 # Ensure build directory exists
 mkdir -p build
 
-# Configure CMake if not already configured
-if [ ! -f build/CMakeCache.txt ]; then
-	cmake -S . -B build
-fi
+# Always (re)configure CMake to pick up CMakeLists changes
+cmake -S . -B build
 
 # Build
 cmake --build build -j
