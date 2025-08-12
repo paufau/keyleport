@@ -43,8 +43,15 @@ int main(int argc, char *argv[])
     auto r = server->createReceiver(opt.port);
     r->onReceive([emitter_ptr](const std::string &payload)
                  {
-    if (payload.empty()) return; 
-    const keyboard::InputEvent ev = keyboard::InputEventJSONConverter::decode(payload);
+  if (payload.empty()) return; 
+  // Debug: show received payload
+  std::cerr << "[receiver] payload: " << payload << std::endl;
+    keyboard::InputEvent ev = keyboard::InputEventJSONConverter::decode(payload);
+    std::cerr << "[receiver] decoded type=" << static_cast<int>(ev.type)
+              << " action=" << static_cast<int>(ev.action)
+              << " code=" << ev.code
+              << " dx=" << ev.dx
+              << " dy=" << ev.dy << std::endl;
     emitter_ptr->emit(ev); });
     return r->run();
   }
@@ -59,6 +66,8 @@ int main(int argc, char *argv[])
                     {
     const bool use_udp = (ev.type == keyboard::InputEvent::Type::Mouse && (ev.action == keyboard::InputEvent::Action::Move || ev.action == keyboard::InputEvent::Action::Scroll));
     const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
+    // Debug: show send path and payload
+    std::cerr << "[sender] via " << (use_udp ? "UDP" : "TCP") << ": " << payload << std::endl;
     if (use_udp) {
       sender_ptr->send_udp(payload);
     } else {
