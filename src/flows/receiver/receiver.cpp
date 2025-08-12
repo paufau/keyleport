@@ -21,12 +21,7 @@ namespace flows
           {
             return;
           }
-          // Debug: show received payload
-          std::cerr << "[receiver] payload: " << payload << std::endl;
           keyboard::InputEvent ev = keyboard::InputEventJSONConverter::decode(payload);
-          std::cerr << "[receiver] decoded type=" << static_cast<int>(ev.type)
-                    << " action=" << static_cast<int>(ev.action) << " code=" << ev.code << " dx=" << ev.dx
-                    << " dy=" << ev.dy << std::endl;
           emitter_ptr->emit(ev);
         });
     return r->run();
