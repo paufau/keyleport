@@ -1,0 +1,84 @@
+#include <string>
+#include <cstring>
+#include <iostream>
+#include <memory>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+#include "networking/server/sender.h"
+
+namespace net
+{
+  namespace
+  {
+    int connect_tcp(const std::string &ip, int port)
+    {
+      int sock = ::socket(AF_INET, SOCK_STREAM, 0);
+      if (sock < 0)
+        return -1;
+      sockaddr_in addr{};
+      addr.sin_family = AF_INET;
+      addr.sin_port = htons(static_cast<uint16_t>(port));
+      if (::inet_pton(AF_INET, ip.c_str(), &addr.sin_addr) <= 0)
+      {
+        ::close(sock);
+        return -2;
+      }
+      if (::connect(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0)
+      {
+        ::close(sock);
+        return -3;
+      }
+      return sock;
+    }
+
+    int send_all(int sock, const std::string &data)
+    {
+      const char *p = data.c_str();
+      size_t remaining = data.size();
+      while (remaining > 0)
+      {
+        ssize_t n = ::send(sock, p, remaining, 0);
+        if (n <= 0)
+          return -1;
+        p += n;
+        remaining -= static_cast<size_t>(n);
+      }
+      return 0;
+    }
+  } // namespace
+
+  class CxxSender : public Sender
+  {
+  public:
+    CxxSender(std::string ip, int port) : ip_(std::move(ip)), port_(port) {}
+    int run() override { return 0; }
+    int send(const std::string &data) override
+    {
+      int sock = connect_tcp(ip_, port_);
+      if (sock < 0)
+        return 2;
+      if (send_all(sock, data) != 0)
+      {
+        ::close(sock);
+        return 3;
+      }
+      ::shutdown(sock, SHUT_WR);
+      ::close(sock);
+      return 0;
+    }
+
+  private:
+    std::string ip_;
+    int port_;
+  };
+
+  std::unique_ptr<Sender> make_sender(const std::string &ip, int port)
+  {
+    return std::unique_ptr<Sender>(new CxxSender(ip, port));
+  }
+
+} // namespace net

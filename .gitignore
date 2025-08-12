@@ -1,0 +1,9 @@
+# IDE
+.vscode
+
+# Artifacts
+build/
+.git
+
+# Logs
+*.log
