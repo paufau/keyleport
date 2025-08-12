@@ -3,6 +3,8 @@
 #include <string>
 #include "../emitter.h"
 #include <Windows.h>
+// Shared HID → Windows scancode mapping
+#include "../mapping/hid_to_win.h"
 
 namespace keyboard
 {
@@ -43,13 +45,17 @@ namespace keyboard
       return (sent == 1) ? 0 : -1;
     }
 
-    static int emitKey(uint16_t scanCode, bool down)
+    static int emitKey(uint16_t hidCode, bool down)
     {
+      bool extended = false;
+      WORD scan = static_cast<WORD>(mapping::hid_to_win_scan(hidCode, extended));
+      if (scan == 0)
+        return 0;
       INPUT in{};
       in.type = INPUT_KEYBOARD;
       in.ki.wVk = 0; // using scancode
-      in.ki.wScan = static_cast<WORD>(scanCode);
-      in.ki.dwFlags = KEYEVENTF_SCANCODE | (down ? 0 : KEYEVENTF_KEYUP);
+      in.ki.wScan = scan;
+      in.ki.dwFlags = KEYEVENTF_SCANCODE | (down ? 0 : KEYEVENTF_KEYUP) | (extended ? KEYEVENTF_EXTENDEDKEY : 0);
       return sendInput(in);
     }
 
