@@ -5,7 +5,6 @@
 #include <cstring>
 #include <functional>
 #include <memory>
-#include <mstcpip.h>
 #include <string>
 #include <thread>
 #include <winsock2.h>
@@ -72,11 +71,7 @@ namespace net
       }
       BOOL yes = 1;
       ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
-#ifdef SIO_UDP_CONNRESET
-      DWORD bytesReturned = 0;
-      BOOL newBehavior = FALSE;
-      ::WSAIoctl(sock, SIO_UDP_CONNRESET, &newBehavior, sizeof(newBehavior), NULL, 0, &bytesReturned, NULL, NULL);
-#endif
+      // Note: Intentionally not using SIO_UDP_CONNRESET due to SDK compatibility variance.
       int rcvbuf = 1 << 20; // 1MiB
       ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&rcvbuf), sizeof(rcvbuf));
       sockaddr_in addr{};
