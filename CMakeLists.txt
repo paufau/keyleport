@@ -70,7 +70,7 @@ endif()
 
 # Link Windows system libraries when building on Windows
 if(WIN32)
-  target_link_libraries(keyleport PRIVATE user32)
+  target_link_libraries(keyleport PRIVATE user32 ws2_32)
 endif()
 
 # Require nlohmann_json via FetchContent (header-only)
