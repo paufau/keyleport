@@ -4,7 +4,7 @@
 #include "utils/cli/args.h"
 #include "networking/server/server.h"
 #include "keyboard/keyboard.h"
-#include "keyboard/event_batch.h"
+#include "keyboard/input_event.h"
 #include <sstream>
 
 int main(int argc, char *argv[])
@@ -43,12 +43,9 @@ int main(int argc, char *argv[])
     auto r = server->createReceiver(opt.port);
     r->onReceive([emitter_ptr](const std::string &payload)
                  {
-      if (payload.empty()) return; 
-      const keyboard::EventBatch batch = keyboard::EventBatch::decode(payload);
-      if (batch.empty()) return;
-      for (const auto &ev : batch.events) {
-        emitter_ptr->emit(ev);
-      } });
+    if (payload.empty()) return; 
+    const keyboard::InputEvent ev = keyboard::InputEventJSONConverter::decode(payload);
+    emitter_ptr->emit(ev); });
     return r->run();
   }
   if (opt.ip.empty())
@@ -58,23 +55,14 @@ int main(int argc, char *argv[])
   auto listener = kb->createListener();
 
   net::Sender *sender_ptr = s.get();
-  listener->onEvent([sender_ptr](const keyboard::EventBatch &batch)
+  listener->onEvent([sender_ptr](const keyboard::InputEvent &ev)
                     {
-    if (!batch.empty())
-    {
-      bool use_udp = false;
-      for (const auto &e : batch.events) {
-        if (e.type == keyboard::InputEvent::Type::Mouse && (e.action == keyboard::InputEvent::Action::Move || e.action == keyboard::InputEvent::Action::Scroll)) {
-          use_udp = true;
-          break;
-        }
-      }
-      const std::string payload = batch.encode();
-      if (use_udp) {
-        sender_ptr->send_udp(payload);
-      } else {
-        sender_ptr->send_tcp(payload);
-      }
+    const bool use_udp = (ev.type == keyboard::InputEvent::Type::Mouse && (ev.action == keyboard::InputEvent::Action::Move || ev.action == keyboard::InputEvent::Action::Scroll));
+    const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
+    if (use_udp) {
+      sender_ptr->send_udp(payload);
+    } else {
+      sender_ptr->send_tcp(payload);
     } });
 
   return listener->run();

@@ -79,7 +79,7 @@ namespace keyboard
           }
           if (!handler_)
             continue;
-          EventBatch batch;
+          // Emit events one-by-one via handler
           switch (ev.type)
           {
           case SDL_EVENT_KEY_DOWN:
@@ -89,7 +89,7 @@ namespace keyboard
             ie.type = InputEvent::Type::Key;
             ie.action = (ev.type == SDL_EVENT_KEY_DOWN) ? InputEvent::Action::Down : InputEvent::Action::Up;
             ie.code = static_cast<uint16_t>(ev.key.scancode);
-            batch.push_back(ie);
+            handler_(ie);
             break;
           }
           case SDL_EVENT_MOUSE_MOTION:
@@ -100,7 +100,7 @@ namespace keyboard
             ie.code = 0;
             ie.dx = ev.motion.xrel;
             ie.dy = ev.motion.yrel;
-            batch.push_back(ie);
+            handler_(ie);
             break;
           }
           case SDL_EVENT_MOUSE_WHEEL:
@@ -111,7 +111,7 @@ namespace keyboard
             ie.code = 0;
             ie.dx = static_cast<int32_t>(ev.wheel.x);
             ie.dy = static_cast<int32_t>(ev.wheel.y);
-            batch.push_back(ie);
+            handler_(ie);
             break;
           }
           case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -123,7 +123,7 @@ namespace keyboard
             ie.code = static_cast<uint16_t>(ev.button.button);
             ie.dx = 0;
             ie.dy = 0;
-            batch.push_back(ie);
+            handler_(ie);
             break;
           }
           case SDL_EVENT_WINDOW_RESIZED:
@@ -137,8 +137,7 @@ namespace keyboard
           default:
             break;
           }
-          if (!batch.empty())
-            handler_(batch);
+          // handled above per-event
         }
         SDL_Delay(5);
       }

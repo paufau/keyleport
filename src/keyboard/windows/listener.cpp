@@ -12,6 +12,8 @@ namespace keyboard
     int run() override
     {
       // No-op stub listener for Windows to satisfy linkage
+      // If needed, emit a synthetic event example:
+      // if (handler_) { InputEvent ie{}; ie.type = InputEvent::Type::Key; ie.action = InputEvent::Action::Down; ie.code = 0; ie.dx = 0; ie.dy = 0; handler_(ie); }
       return 0;
     }
 

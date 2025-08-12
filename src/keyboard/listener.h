@@ -4,12 +4,11 @@
 #include <vector>
 
 #include "input_event.h"
-#include "event_batch.h"
 
 namespace keyboard
 {
 
-  using EventHandler = std::function<void(const EventBatch &)>;
+  using EventHandler = std::function<void(const InputEvent &)>;
 
   class Listener
   {
