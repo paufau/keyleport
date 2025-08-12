@@ -5,7 +5,7 @@ namespace keyboard
   namespace mapping
   {
 
-    uint16_t hid_to_win_scan(uint16_t hid, bool &extended)
+    uint16_t hid_to_win_scan(uint16_t hid, bool& extended)
     {
       extended = false;
       switch (hid)

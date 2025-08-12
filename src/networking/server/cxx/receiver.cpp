@@ -1,18 +1,18 @@
-#include <string>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <thread>
-#include <functional>
 #ifdef _WIN32
+#include <mstcpip.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <mstcpip.h>
 #else
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -32,16 +32,32 @@ namespace net
       {
         WSADATA wsa{};
         if (WSAStartup(MAKEWORD(2, 2), &wsa) == 0)
+        {
           inited = true;
+        }
       }
     }
-    inline void close_socket(SocketHandle s) { ::closesocket(s); }
-    inline int shutdown_read(SocketHandle s) { return ::shutdown(s, SD_RECEIVE); }
+    inline void close_socket(SocketHandle s)
+    {
+      ::closesocket(s);
+    }
+    inline int shutdown_read(SocketHandle s)
+    {
+      return ::shutdown(s, SD_RECEIVE);
+    }
 #else
     using SocketHandle = int;
-    inline void ensure_wsa() {}
-    inline void close_socket(SocketHandle s) { ::close(s); }
-    inline int shutdown_read(SocketHandle s) { return ::shutdown(s, SHUT_RD); }
+    inline void ensure_wsa()
+    {
+    }
+    inline void close_socket(SocketHandle s)
+    {
+      ::close(s);
+    }
+    inline int shutdown_read(SocketHandle s)
+    {
+      return ::shutdown(s, SHUT_RD);
+    }
 #endif
 
     SocketHandle listen_tcp(int port)
@@ -52,12 +68,16 @@ namespace net
       SocketHandle sock = ::socket(AF_INET, SOCK_STREAM, 0);
 #ifdef _WIN32
       if (sock == INVALID_SOCKET)
+      {
         return INVALID_SOCKET;
+      }
       BOOL yes = 1;
-      ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&yes), sizeof(yes));
+      ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
 #else
       if (sock < 0)
+      {
         return -1;
+      }
       int yes = 1;
       ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 #endif
@@ -65,7 +85,7 @@ namespace net
       addr.sin_family = AF_INET;
       addr.sin_addr.s_addr = INADDR_ANY;
       addr.sin_port = htons(static_cast<uint16_t>(port));
-      if (::bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0)
+      if (::bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
       {
         close_socket(sock);
 #ifdef _WIN32
@@ -94,21 +114,25 @@ namespace net
       SocketHandle sock = ::socket(AF_INET, SOCK_DGRAM, 0);
 #ifdef _WIN32
       if (sock == INVALID_SOCKET)
+      {
         return INVALID_SOCKET;
+      }
       BOOL yes = 1;
-      ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&yes), sizeof(yes));
+      ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
       // Disable UDP connection reset behavior to avoid WSAECONNRESET when ICMP unreachable is received
 #ifdef SIO_UDP_CONNRESET
       DWORD bytesReturned = 0;
-      BOOL newBehavior = FALSE;
+      BOOL  newBehavior = FALSE;
       ::WSAIoctl(sock, SIO_UDP_CONNRESET, &newBehavior, sizeof(newBehavior), NULL, 0, &bytesReturned, NULL, NULL);
 #endif
       // Increase receive buffer
       int rcvbuf = 1 << 20; // 1MiB
-      ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char *>(&rcvbuf), sizeof(rcvbuf));
+      ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&rcvbuf), sizeof(rcvbuf));
 #else
       if (sock < 0)
+      {
         return -1;
+      }
       int yes = 1;
       ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
       int rcvbuf = 1 << 20; // 1MiB
@@ -118,7 +142,7 @@ namespace net
       addr.sin_family = AF_INET;
       addr.sin_addr.s_addr = INADDR_ANY;
       addr.sin_port = htons(static_cast<uint16_t>(port));
-      if (::bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0)
+      if (::bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
       {
         close_socket(sock);
 #ifdef _WIN32
@@ -130,7 +154,7 @@ namespace net
       return sock;
     }
 
-    int recv_all(SocketHandle sock, std::string &out)
+    int recv_all(SocketHandle sock, std::string& out)
     {
       char buf[4096];
       for (;;)
@@ -141,30 +165,38 @@ namespace net
         ssize_t n = ::recv(sock, buf, sizeof(buf), 0);
 #endif
         if (n < 0)
+        {
           return -1;
+        }
         if (n == 0)
+        {
           break;
+        }
         out.append(buf, static_cast<size_t>(n));
       }
       return 0;
     }
-  }
+  } // namespace
 
   class CxxReceiver : public Receiver
   {
   public:
     explicit CxxReceiver(int port) : port_(port) {}
     void onReceive(ReceiveHandler handler) override { handler_ = std::move(handler); }
-    int run() override
+    int  run() override
     {
       SocketHandle sock = listen_tcp(port_);
       SocketHandle udp = listen_udp(port_);
 #ifdef _WIN32
       if (sock == INVALID_SOCKET && udp == INVALID_SOCKET)
+      {
         return 1;
+      }
 #else
       if (sock < 0 && udp < 0)
+      {
         return 1;
+      }
 #endif
       for (;;)
       {
@@ -172,9 +204,13 @@ namespace net
         fd_set readfds;
         FD_ZERO(&readfds);
         if (sock != INVALID_SOCKET)
+        {
           FD_SET(sock, &readfds);
+        }
         if (udp != INVALID_SOCKET)
+        {
           FD_SET(udp, &readfds);
+        }
         int nfds = 0; // ignored by winsock select
         int ready = ::select(nfds, &readfds, nullptr, nullptr, nullptr);
 #else
@@ -185,18 +221,24 @@ namespace net
         {
           FD_SET(sock, &readfds);
           if (sock > maxfd)
+          {
             maxfd = sock;
+          }
         }
         if (udp >= 0)
         {
           FD_SET(udp, &readfds);
           if (udp > maxfd)
+          {
             maxfd = udp;
+          }
         }
         int ready = ::select(maxfd + 1, &readfds, nullptr, nullptr, nullptr);
 #endif
         if (ready <= 0)
+        {
           continue;
+        }
 
         // UDP datagrams
 #ifdef _WIN32
@@ -214,22 +256,26 @@ namespace net
           sockaddr_in from{};
           addrlen = sizeof(from);
 #ifdef _WIN32
-          int n = ::recvfrom(udp, buf, sizeof(buf), 0, reinterpret_cast<sockaddr *>(&from), &addrlen);
+          int n = ::recvfrom(udp, buf, sizeof(buf), 0, reinterpret_cast<sockaddr*>(&from), &addrlen);
           if (n > 0)
           {
             // Optional: log bytes received for debugging
             // std::cerr << "[udp recv] " << n << " bytes" << std::endl;
             if (handler_)
+            {
               handler_(std::string(buf, buf + n));
+            }
           }
 #else
-          ssize_t n = ::recvfrom(udp, buf, sizeof(buf), 0, reinterpret_cast<sockaddr *>(&from), &addrlen);
+          ssize_t n = ::recvfrom(udp, buf, sizeof(buf), 0, reinterpret_cast<sockaddr*>(&from), &addrlen);
           if (n > 0)
           {
             // Optional: log bytes received for debugging
             // std::cerr << "[udp recv] " << n << " bytes" << std::endl;
             if (handler_)
+            {
               handler_(std::string(buf, static_cast<size_t>(n)));
+            }
           }
 #endif
         }
@@ -249,16 +295,36 @@ namespace net
           else
           {
             auto handler = handler_;
-            std::thread([cfd, handler]() mutable
-                        {
-        std::string payload;
-        // reuse recv_all logic locally
-        auto recv_all_thread = [](SocketHandle s, std::string &out) -> int {
-    char tbuf[4096];
-    for(;;){ int n = ::recv(s, tbuf, sizeof(tbuf), 0); if (n < 0) return -1; if (n == 0) break; out.append(tbuf, n);} return 0; };
-        if (recv_all_thread(cfd, payload) == 0 && handler) handler(payload);
-        ::shutdown(cfd, SD_RECEIVE);
-        ::closesocket(cfd); })
+            std::thread(
+                [cfd, handler]() mutable
+                {
+                  std::string payload;
+                  // reuse recv_all logic locally
+                  auto recv_all_thread = [](SocketHandle s, std::string& out) -> int
+                  {
+                    char tbuf[4096];
+                    for (;;)
+                    {
+                      int n = ::recv(s, tbuf, sizeof(tbuf), 0);
+                      if (n < 0)
+                      {
+                        return -1;
+                      }
+                      if (n == 0)
+                      {
+                        break;
+                      }
+                      out.append(tbuf, n);
+                    }
+                    return 0;
+                  };
+                  if (recv_all_thread(cfd, payload) == 0 && handler)
+                  {
+                    handler(payload);
+                  }
+                  ::shutdown(cfd, SD_RECEIVE);
+                  ::closesocket(cfd);
+                })
                 .detach();
           }
 #else
@@ -268,15 +334,35 @@ namespace net
           else
           {
             auto handler = handler_;
-            std::thread([cfd, handler]() mutable
-                        {
-        std::string payload;
-        auto recv_all_thread = [](SocketHandle s, std::string &out) -> int {
-    char tbuf[4096];
-    for(;;){ ssize_t n = ::recv(s, tbuf, sizeof(tbuf), 0); if (n < 0) return -1; if (n == 0) break; out.append(tbuf, static_cast<size_t>(n)); } return 0; };
-        if (recv_all_thread(cfd, payload) == 0 && handler) handler(payload);
-        ::shutdown(cfd, SHUT_RD);
-        ::close(cfd); })
+            std::thread(
+                [cfd, handler]() mutable
+                {
+                  std::string payload;
+                  auto        recv_all_thread = [](SocketHandle s, std::string& out) -> int
+                  {
+                    char tbuf[4096];
+                    for (;;)
+                    {
+                      ssize_t n = ::recv(s, tbuf, sizeof(tbuf), 0);
+                      if (n < 0)
+                      {
+                        return -1;
+                      }
+                      if (n == 0)
+                      {
+                        break;
+                      }
+                      out.append(tbuf, static_cast<size_t>(n));
+                    }
+                    return 0;
+                  };
+                  if (recv_all_thread(cfd, payload) == 0 && handler)
+                  {
+                    handler(payload);
+                  }
+                  ::shutdown(cfd, SHUT_RD);
+                  ::close(cfd);
+                })
                 .detach();
           }
 #endif
@@ -286,7 +372,7 @@ namespace net
     }
 
   private:
-    int port_;
+    int            port_;
     ReceiveHandler handler_;
   };
 

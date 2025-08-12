@@ -1,8 +1,9 @@
 #ifdef _WIN32
+#include "../emitter.h"
+
+#include <Windows.h>
 #include <memory>
 #include <string>
-#include "../emitter.h"
-#include <Windows.h>
 // Shared HID → Windows scancode mapping
 #include "../mapping/hid_to_win.h"
 
@@ -12,7 +13,7 @@ namespace keyboard
   class WindowsEmitter : public Emitter
   {
   public:
-    int emit(const InputEvent &event) override
+    int emit(const InputEvent& event) override
     {
       switch (event.type)
       {
@@ -26,9 +27,13 @@ namespace keyboard
         case InputEvent::Action::Scroll:
           // Use dy for vertical, dx for horizontal
           if (event.dy != 0)
+          {
             return emitMouseWheel(event.dy);
+          }
           if (event.dx != 0)
+          {
             return emitMouseHWheel(event.dx);
+          }
           return 0;
         case InputEvent::Action::Down:
           return emitMouseButton(event.code, true);
@@ -43,10 +48,10 @@ namespace keyboard
     }
 
   private:
-    static int sendInput(const INPUT &in)
+    static int sendInput(const INPUT& in)
     {
       INPUT tmp = in;
-      UINT sent = ::SendInput(1, &tmp, sizeof(INPUT));
+      UINT  sent = ::SendInput(1, &tmp, sizeof(INPUT));
       return (sent == 1) ? 0 : -1;
     }
 
@@ -55,7 +60,9 @@ namespace keyboard
       bool extended = false;
       WORD scan = static_cast<WORD>(mapping::hid_to_win_scan(hidCode, extended));
       if (scan == 0)
+      {
         return 0;
+      }
       INPUT in{};
       in.type = INPUT_KEYBOARD;
       in.ki.wVk = 0; // using scancode

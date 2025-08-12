@@ -5,13 +5,13 @@
 namespace cli
 {
 
-  static void set_error(Options &o, std::string msg)
+  static void set_error(Options& o, std::string msg)
   {
     o.valid = false;
     o.error = std::move(msg);
   }
 
-  Options parse(int argc, char *argv[])
+  Options parse(int argc, char* argv[])
   {
     Options opt{};
 #ifdef _WIN32
@@ -71,7 +71,7 @@ namespace cli
     return opt;
   }
 
-  void print_usage(const char *program_name)
+  void print_usage(const char* program_name)
   {
     std::cout << "Usage: " << program_name << " --mode <sender|receiver> [--ip <addr>] [--port <port>]" << std::endl;
   }

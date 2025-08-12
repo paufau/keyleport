@@ -82,3 +82,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 target_link_libraries(keyleport PRIVATE nlohmann_json::nlohmann_json)
+
+# Formatting helper (optional; requires clang-format installed)
+find_program(CLANG_FORMAT_BIN NAMES clang-format)
+if(CLANG_FORMAT_BIN)
+  add_custom_target(format
+    COMMAND ${CLANG_FORMAT_BIN} -i ${KEYLEPORT_SOURCES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Running clang-format on project sources")
+endif()

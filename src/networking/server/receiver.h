@@ -10,9 +10,9 @@ namespace net
   {
   public:
     virtual ~Receiver() = default;
-    using ReceiveHandler = std::function<void(const std::string &)>;
+    using ReceiveHandler = std::function<void(const std::string&)>;
     virtual void onReceive(ReceiveHandler handler) = 0;
-    virtual int run() = 0;
+    virtual int  run() = 0;
   };
 
 } // namespace net

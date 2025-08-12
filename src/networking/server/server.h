@@ -1,10 +1,10 @@
 #pragma once
 
+#include "receiver.h"
+#include "sender.h"
+
 #include <memory>
 #include <string>
-
-#include "sender.h"
-#include "receiver.h"
 
 namespace net
 {
@@ -13,7 +13,7 @@ namespace net
   {
   public:
     virtual ~Server() = default;
-    virtual std::unique_ptr<Sender> createSender(const std::string &ip, int port) = 0;
+    virtual std::unique_ptr<Sender>   createSender(const std::string& ip, int port) = 0;
     virtual std::unique_ptr<Receiver> createReceiver(int port) = 0;
   };
 

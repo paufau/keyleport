@@ -1,11 +1,11 @@
 #if defined(__APPLE__) && defined(USE_SDL3)
+#include "../listener.h"
+
+#include <SDL3/SDL.h>
+#include <iostream>
 #include <memory>
 #include <utility>
 #include <vector>
-#include <SDL3/SDL.h>
-#include <iostream>
-
-#include "../listener.h"
 
 namespace keyboard
 {
@@ -14,13 +14,15 @@ namespace keyboard
   {
   public:
     void onEvent(EventHandler handler) override { handler_ = std::move(handler); }
-    int run() override { return listen_loop(); }
+    int  run() override { return listen_loop(); }
 
   private:
-    void update_mouse_confinement_rect(SDL_Window *win, int w, int h)
+    void update_mouse_confinement_rect(SDL_Window* win, int w, int h)
     {
       if (!win || w <= 0 || h <= 0)
+      {
         return;
+      }
       SDL_Rect rect{0, 0, w, h};
       if (!SDL_SetWindowMouseRect(win, &rect))
       {
@@ -28,10 +30,12 @@ namespace keyboard
       }
     }
 
-    void apply_mouse_confinement(SDL_Window *win)
+    void apply_mouse_confinement(SDL_Window* win)
     {
       if (!win)
+      {
         return;
+      }
       if (!SDL_SetWindowMouseGrab(win, true))
       {
         std::cerr << "SDL_SetWindowMouseGrab failed: " << SDL_GetError() << std::endl;
@@ -45,10 +49,12 @@ namespace keyboard
       }
     }
 
-    void release_mouse_confinement(SDL_Window *win)
+    void release_mouse_confinement(SDL_Window* win)
     {
       if (!win)
+      {
         return;
+      }
       SDL_SetWindowRelativeMouseMode(win, false);
       SDL_SetWindowMouseGrab(win, false);
       SDL_SetWindowMouseRect(win, nullptr);
@@ -57,7 +63,7 @@ namespace keyboard
     int listen_loop()
     {
       SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-      SDL_Window *win = SDL_CreateWindow("Keyleport", 800, 600, 0);
+      SDL_Window* win = SDL_CreateWindow("Keyleport", 800, 600, 0);
       if (!win)
       {
         std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << std::endl;
@@ -78,7 +84,9 @@ namespace keyboard
             break;
           }
           if (!handler_)
+          {
             continue;
+          }
           // Emit events one-by-one via handler
           switch (ev.type)
           {

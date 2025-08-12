@@ -1,19 +1,20 @@
-#include <iostream>
-#include <string>
-#include "utils/get_platform/platform.h"
-#include "utils/cli/args.h"
-#include "networking/server/server.h"
-#include "keyboard/keyboard.h"
-#include "keyboard/input_event.h"
-#include <sstream>
-#include <thread>
-#include <atomic>
-#include <mutex>
-#include <chrono>
 #include "flows/receiver/receiver.h"
 #include "flows/sender/sender.h"
+#include "keyboard/input_event.h"
+#include "keyboard/keyboard.h"
+#include "networking/server/server.h"
+#include "utils/cli/args.h"
+#include "utils/get_platform/platform.h"
 
-int main(int argc, char *argv[])
+#include <atomic>
+#include <chrono>
+#include <iostream>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+
+int main(int argc, char* argv[])
 {
   cli::Options opt = cli::parse(argc, argv);
 

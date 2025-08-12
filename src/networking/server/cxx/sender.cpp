@@ -1,15 +1,15 @@
-#include <string>
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <string>
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -29,19 +29,35 @@ namespace net
       {
         WSADATA wsa{};
         if (WSAStartup(MAKEWORD(2, 2), &wsa) == 0)
+        {
           inited = true;
+        }
       }
     }
-    inline void close_socket(SocketHandle s) { ::closesocket(s); }
-    inline int shutdown_send(SocketHandle s) { return ::shutdown(s, SD_SEND); }
+    inline void close_socket(SocketHandle s)
+    {
+      ::closesocket(s);
+    }
+    inline int shutdown_send(SocketHandle s)
+    {
+      return ::shutdown(s, SD_SEND);
+    }
 #else
     using SocketHandle = int;
-    inline void ensure_wsa() {}
-    inline void close_socket(SocketHandle s) { ::close(s); }
-    inline int shutdown_send(SocketHandle s) { return ::shutdown(s, SHUT_WR); }
+    inline void ensure_wsa()
+    {
+    }
+    inline void close_socket(SocketHandle s)
+    {
+      ::close(s);
+    }
+    inline int shutdown_send(SocketHandle s)
+    {
+      return ::shutdown(s, SHUT_WR);
+    }
 #endif
 
-    SocketHandle connect_tcp(const std::string &ip, int port)
+    SocketHandle connect_tcp(const std::string& ip, int port)
     {
 #ifdef _WIN32
       ensure_wsa();
@@ -49,10 +65,14 @@ namespace net
       SocketHandle sock = ::socket(AF_INET, SOCK_STREAM, 0);
 #ifdef _WIN32
       if (sock == INVALID_SOCKET)
+      {
         return INVALID_SOCKET;
+      }
 #else
       if (sock < 0)
+      {
         return -1;
+      }
 #endif
       sockaddr_in addr{};
       addr.sin_family = AF_INET;
@@ -66,7 +86,7 @@ namespace net
         return -2;
 #endif
       }
-      if (::connect(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0)
+      if (::connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
       {
         close_socket(sock);
 #ifdef _WIN32
@@ -78,10 +98,10 @@ namespace net
       return sock;
     }
 
-    int send_all(SocketHandle sock, const std::string &data)
+    int send_all(SocketHandle sock, const std::string& data)
     {
-      const char *p = data.c_str();
-      size_t remaining = data.size();
+      const char* p = data.c_str();
+      size_t      remaining = data.size();
       while (remaining > 0)
       {
 #ifdef _WIN32
@@ -90,7 +110,9 @@ namespace net
         ssize_t n = ::send(sock, p, remaining, 0);
 #endif
         if (n <= 0)
+        {
           return -1;
+        }
         p += n;
         remaining -= static_cast<size_t>(n);
       }
@@ -103,15 +125,19 @@ namespace net
   public:
     CxxSender(std::string ip, int port) : ip_(std::move(ip)), port_(port) {}
     int run() override { return 0; }
-    int send_tcp(const std::string &data) override
+    int send_tcp(const std::string& data) override
     {
       SocketHandle sock = connect_tcp(ip_, port_);
 #ifdef _WIN32
       if (sock == INVALID_SOCKET)
+      {
         return 2;
+      }
 #else
       if (sock < 0)
+      {
         return 2;
+      }
 #endif
       if (send_all(sock, data) != 0)
       {
@@ -123,27 +149,33 @@ namespace net
       return 0;
     }
 
-    int send_udp(const std::string &data) override
+    int send_udp(const std::string& data) override
     {
       if (data.empty())
+      {
         return 0;
+      }
 #ifdef _WIN32
       ensure_wsa();
 #endif
       SocketHandle sock = ::socket(AF_INET, SOCK_DGRAM, 0);
 #ifdef _WIN32
       if (sock == INVALID_SOCKET)
+      {
         return 2;
+      }
 #else
       if (sock < 0)
+      {
         return 2;
+      }
 #endif
       // Increase send buffer and set small send timeout
 #ifdef _WIN32
       int sndbuf = 1 << 20; // 1MiB
-      ::setsockopt(sock, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char *>(&sndbuf), sizeof(sndbuf));
+      ::setsockopt(sock, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char*>(&sndbuf), sizeof(sndbuf));
       DWORD timeoutMs = 100; // 100ms
-      ::setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&timeoutMs), sizeof(timeoutMs));
+      ::setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeoutMs), sizeof(timeoutMs));
 #else
       int sndbuf = 1 << 20; // 1MiB
       ::setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
@@ -163,7 +195,7 @@ namespace net
 
       // Prefer connected UDP to help routing; fallback to sendto if connect fails
 #ifdef _WIN32
-      int rc = ::connect(sock, reinterpret_cast<sockaddr *>(&addr), static_cast<int>(sizeof(addr)));
+      int rc = ::connect(sock, reinterpret_cast<sockaddr*>(&addr), static_cast<int>(sizeof(addr)));
       if (rc == 0)
       {
         int sent = ::send(sock, data.c_str(), static_cast<int>(data.size()), 0);
@@ -176,11 +208,7 @@ namespace net
       }
       else
       {
-        int sent = ::sendto(sock,
-                            data.c_str(),
-                            static_cast<int>(data.size()),
-                            0,
-                            reinterpret_cast<sockaddr *>(&addr),
+        int sent = ::sendto(sock, data.c_str(), static_cast<int>(data.size()), 0, reinterpret_cast<sockaddr*>(&addr),
                             static_cast<int>(sizeof(addr)));
         if (sent == SOCKET_ERROR || sent != static_cast<int>(data.size()))
         {
@@ -190,7 +218,7 @@ namespace net
         }
       }
 #else
-      int rc = ::connect(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr));
+      int rc = ::connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
       if (rc == 0)
       {
         ssize_t sent = ::send(sock, data.c_str(), data.size(), 0);
@@ -203,12 +231,7 @@ namespace net
       }
       else
       {
-        ssize_t sent = ::sendto(sock,
-                                data.c_str(),
-                                data.size(),
-                                0,
-                                reinterpret_cast<sockaddr *>(&addr),
-                                sizeof(addr));
+        ssize_t sent = ::sendto(sock, data.c_str(), data.size(), 0, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
         if (sent < 0 || static_cast<size_t>(sent) != data.size())
         {
           std::cerr << "[udp send] sendto failed" << std::endl;
@@ -223,10 +246,10 @@ namespace net
 
   private:
     std::string ip_;
-    int port_;
+    int         port_;
   };
 
-  std::unique_ptr<Sender> make_sender(const std::string &ip, int port)
+  std::unique_ptr<Sender> make_sender(const std::string& ip, int port)
   {
     return std::unique_ptr<Sender>(new CxxSender(ip, port));
   }

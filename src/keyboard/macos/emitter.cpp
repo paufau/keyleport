@@ -1,8 +1,8 @@
+#include "../emitter.h"
+
+#include <iostream>
 #include <memory>
 #include <string>
-#include <iostream>
-
-#include "../emitter.h"
 
 namespace keyboard
 {
@@ -10,14 +10,11 @@ namespace keyboard
   class MacEmitter : public Emitter
   {
   public:
-    int emit(const InputEvent &event) override
+    int emit(const InputEvent& event) override
     {
       std::cout << "[macos emitter] type=" << static_cast<int>(event.type)
-                << " action=" << static_cast<int>(event.action)
-                << " code=" << event.code
-                << " dx=" << event.dx
-                << " dy=" << event.dy
-                << std::endl;
+                << " action=" << static_cast<int>(event.action) << " code=" << event.code << " dx=" << event.dx
+                << " dy=" << event.dy << std::endl;
       return 0;
     }
   };
