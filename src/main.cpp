@@ -95,9 +95,11 @@ int main(int argc, char *argv[])
   // Background sender that flushes aggregated movement every 3 ms via UDP
   std::thread moveSender([&]()
                          {
+    int throttle = 16;
+
     using namespace std::chrono;
     while (aggregator.running.load(std::memory_order_relaxed)) {
-      std::this_thread::sleep_for(milliseconds(3));
+      std::this_thread::sleep_for(milliseconds(throttle));
       int dx = 0, dy = 0;
       aggregator.take(dx, dy);
       if (dx == 0 && dy == 0) continue;
