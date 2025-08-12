@@ -13,8 +13,6 @@ namespace keyboard
       j["events"].push_back({{"type", static_cast<int>(e.type)},
                              {"action", static_cast<int>(e.action)},
                              {"code", static_cast<int>(e.code)},
-                             {"x", e.x},
-                             {"y", e.y},
                              {"dx", e.dx},
                              {"dy", e.dy}});
     }
@@ -38,8 +36,6 @@ namespace keyboard
       e.type = static_cast<InputEvent::Type>(je.value("type", 0));
       e.action = static_cast<InputEvent::Action>(je.value("action", 0));
       e.code = static_cast<uint16_t>(je.value("code", 0));
-      e.x = je.value("x", 0);
-      e.y = je.value("y", 0);
       e.dx = je.value("dx", 0);
       e.dy = je.value("dy", 0);
       // Back-compat: if payload uses legacy 'delta' for vertical scroll, map it to dy

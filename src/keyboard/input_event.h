@@ -24,11 +24,8 @@ namespace keyboard
     Type type;     // input source
     Action action; // key/mouse action
     uint16_t code; // keycode или кнопка мыши
-    int32_t x;     // absolute x (if available)
-    int32_t y;     // absolute y (if available)
-    int32_t dx;    // relative movement x (for mouse move)
-    int32_t dy;    // relative movement y (for mouse move)
-    int32_t delta; // для скролла
+    int32_t dx;    // relative movement x (for mouse move/scroll)
+    int32_t dy;    // relative movement y (for mouse move/scroll)
   };
 
 } // namespace keyboard

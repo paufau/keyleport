@@ -89,9 +89,6 @@ namespace keyboard
             ie.type = InputEvent::Type::Key;
             ie.action = (ev.type == SDL_EVENT_KEY_DOWN) ? InputEvent::Action::Down : InputEvent::Action::Up;
             ie.code = static_cast<uint16_t>(ev.key.scancode);
-            ie.x = 0;
-            ie.y = 0;
-            ie.delta = 0;
             batch.push_back(ie);
             break;
           }
@@ -101,11 +98,8 @@ namespace keyboard
             ie.type = InputEvent::Type::Mouse;
             ie.action = InputEvent::Action::Move;
             ie.code = 0;
-            ie.x = ev.motion.x;
-            ie.y = ev.motion.y;
             ie.dx = ev.motion.xrel;
             ie.dy = ev.motion.yrel;
-            ie.delta = 0;
             batch.push_back(ie);
             break;
           }
@@ -115,11 +109,8 @@ namespace keyboard
             ie.type = InputEvent::Type::Mouse;
             ie.action = InputEvent::Action::Scroll;
             ie.code = 0;
-            ie.x = 0;
-            ie.y = 0;
             ie.dx = static_cast<int32_t>(ev.wheel.x);
             ie.dy = static_cast<int32_t>(ev.wheel.y);
-            ie.delta = 0;
             batch.push_back(ie);
             break;
           }
@@ -130,11 +121,8 @@ namespace keyboard
             ie.type = InputEvent::Type::Mouse;
             ie.action = (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN) ? InputEvent::Action::Down : InputEvent::Action::Up;
             ie.code = static_cast<uint16_t>(ev.button.button);
-            ie.x = ev.button.x;
-            ie.y = ev.button.y;
             ie.dx = 0;
             ie.dy = 0;
-            ie.delta = 0;
             batch.push_back(ie);
             break;
           }
