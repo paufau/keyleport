@@ -1,6 +1,7 @@
 #include "sender.h"
 
 #include "keyboard/input_event.h"
+#include "move_aggregator.h"
 
 #include <atomic>
 #include <chrono>
@@ -18,31 +19,7 @@ namespace flows
     net::Sender* sender_ptr = s.get();
 
     // Aggregator for mouse move coalescing
-    struct MoveAggregator
-    {
-      std::atomic<bool> running{true};
-      std::mutex m;
-      int agg_dx{0};
-      int agg_dy{0};
-      void add(int dx, int dy)
-      {
-        if (dx == 0 && dy == 0)
-        {
-          return;
-        }
-        std::lock_guard<std::mutex> lock(m);
-        agg_dx += dx;
-        agg_dy += dy;
-      }
-      void take(int& dx, int& dy)
-      {
-        std::lock_guard<std::mutex> lock(m);
-        dx = agg_dx;
-        dy = agg_dy;
-        agg_dx = 0;
-        agg_dy = 0;
-      }
-    } aggregator;
+    MoveAggregator aggregator;
 
     // Background sender that flushes aggregated movement every ~3-8 ms via UDP
     std::thread moveSender(
