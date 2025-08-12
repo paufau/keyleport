@@ -24,7 +24,12 @@ namespace keyboard
         case InputEvent::Action::Move:
           return emitMouseMove(event.dx, event.dy);
         case InputEvent::Action::Scroll:
-          return emitMouseWheel(event.delta);
+          // Use dy for vertical, dx for horizontal
+          if (event.dy != 0)
+            return emitMouseWheel(event.dy);
+          if (event.dx != 0)
+            return emitMouseHWheel(event.dx);
+          return 0;
         case InputEvent::Action::Down:
           return emitMouseButton(event.code, true);
         case InputEvent::Action::Up:
@@ -75,6 +80,15 @@ namespace keyboard
       in.type = INPUT_MOUSE;
       in.mi.mouseData = static_cast<DWORD>(delta * WHEEL_DELTA);
       in.mi.dwFlags = MOUSEEVENTF_WHEEL;
+      return sendInput(in);
+    }
+
+    static int emitMouseHWheel(int delta)
+    {
+      INPUT in{};
+      in.type = INPUT_MOUSE;
+      in.mi.mouseData = static_cast<DWORD>(delta * WHEEL_DELTA);
+      in.mi.dwFlags = MOUSEEVENTF_HWHEEL;
       return sendInput(in);
     }
 

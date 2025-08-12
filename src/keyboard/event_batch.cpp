@@ -16,8 +16,7 @@ namespace keyboard
                              {"x", e.x},
                              {"y", e.y},
                              {"dx", e.dx},
-                             {"dy", e.dy},
-                             {"delta", e.delta}});
+                             {"dy", e.dy}});
     }
     return j.dump();
   }
@@ -43,7 +42,11 @@ namespace keyboard
       e.y = je.value("y", 0);
       e.dx = je.value("dx", 0);
       e.dy = je.value("dy", 0);
-      e.delta = je.value("delta", 0);
+      // Back-compat: if payload uses legacy 'delta' for vertical scroll, map it to dy
+      if (e.action == InputEvent::Action::Scroll && e.dy == 0)
+      {
+        e.dy = je.value("delta", 0);
+      }
       batch.events.push_back(e);
     }
     return batch;

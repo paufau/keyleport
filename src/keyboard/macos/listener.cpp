@@ -117,7 +117,9 @@ namespace keyboard
             ie.code = 0;
             ie.x = 0;
             ie.y = 0;
-            ie.delta = static_cast<int32_t>(ev.wheel.y);
+            ie.dx = static_cast<int32_t>(ev.wheel.x);
+            ie.dy = static_cast<int32_t>(ev.wheel.y);
+            ie.delta = 0;
             batch.push_back(ie);
             break;
           }
