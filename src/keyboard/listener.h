@@ -15,7 +15,7 @@ namespace keyboard
   public:
     virtual ~Listener() = default;
     virtual void onEvent(EventHandler handler) = 0;
-    virtual int  run() = 0;
+    virtual int run() = 0;
   };
 
 } // namespace keyboard

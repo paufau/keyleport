@@ -11,7 +11,7 @@ NamespaceIndentation: All
 SortIncludes: CaseSensitive
 IncludeBlocks: Regroup
 AlignConsecutiveAssignments: None
-AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveDeclarations: None
 AlignTrailingComments: true
 SpacesInParentheses: false
 SpaceBeforeParens: ControlStatements

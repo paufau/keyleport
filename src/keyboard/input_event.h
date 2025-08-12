@@ -23,11 +23,11 @@ namespace keyboard
       Mouse = 1
     };
 
-    Type     type;   // input source
-    Action   action; // key/mouse action
-    uint16_t code;   // keycode
-    int32_t  dx;     // relative movement x (for mouse move/scroll)
-    int32_t  dy;     // relative movement y (for mouse move/scroll)
+    Type type;     // input source
+    Action action; // key/mouse action
+    uint16_t code; // keycode
+    int32_t dx;    // relative movement x (for mouse move/scroll)
+    int32_t dy;    // relative movement y (for mouse move/scroll)
   };
 
   // JSON converter for a single InputEvent
@@ -48,7 +48,7 @@ namespace keyboard
     static inline InputEvent decode(const std::string& s)
     {
       InputEvent e{};
-      auto       j = nlohmann::json::parse(s, nullptr, false);
+      auto j = nlohmann::json::parse(s, nullptr, false);
 
       if (!j.is_object())
       {

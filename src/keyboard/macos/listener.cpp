@@ -14,7 +14,7 @@ namespace keyboard
   {
   public:
     void onEvent(EventHandler handler) override { handler_ = std::move(handler); }
-    int  run() override { return listen_loop(); }
+    int run() override { return listen_loop(); }
 
   private:
     void update_mouse_confinement_rect(SDL_Window* win, int w, int h)

@@ -23,7 +23,7 @@ namespace keyboard
   EventBatch EventBatch::decode(const std::string& s)
   {
     EventBatch batch;
-    auto       j = nlohmann::json::parse(s, nullptr, false);
+    auto j = nlohmann::json::parse(s, nullptr, false);
     if (!j.is_object())
     {
       return batch;

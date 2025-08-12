@@ -51,7 +51,7 @@ namespace keyboard
     static int sendInput(const INPUT& in)
     {
       INPUT tmp = in;
-      UINT  sent = ::SendInput(1, &tmp, sizeof(INPUT));
+      UINT sent = ::SendInput(1, &tmp, sizeof(INPUT));
       return (sent == 1) ? 0 : -1;
     }
 

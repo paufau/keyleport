@@ -19,10 +19,10 @@ namespace keyboard
     static EventBatch decode(const std::string& json);
 
     // Convenience vector-like API for seamless adoption
-    inline bool   empty() const noexcept { return events.empty(); }
+    inline bool empty() const noexcept { return events.empty(); }
     inline size_t size() const noexcept { return events.size(); }
-    inline void   clear() noexcept { events.clear(); }
-    inline void   push_back(const InputEvent& event) { events.push_back(event); }
+    inline void clear() noexcept { events.clear(); }
+    inline void push_back(const InputEvent& event) { events.push_back(event); }
   };
 
 } // namespace keyboard

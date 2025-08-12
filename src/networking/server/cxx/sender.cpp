@@ -101,7 +101,7 @@ namespace net
     int send_all(SocketHandle sock, const std::string& data)
     {
       const char* p = data.c_str();
-      size_t      remaining = data.size();
+      size_t remaining = data.size();
       while (remaining > 0)
       {
 #ifdef _WIN32
@@ -246,7 +246,7 @@ namespace net
 
   private:
     std::string ip_;
-    int         port_;
+    int port_;
   };
 
   std::unique_ptr<Sender> make_sender(const std::string& ip, int port)

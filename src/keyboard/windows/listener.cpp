@@ -10,7 +10,7 @@ namespace keyboard
   {
   public:
     void onEvent(EventHandler handler) override { handler_ = std::move(handler); }
-    int  run() override
+    int run() override
     {
       // No-op stub listener for Windows to satisfy linkage
       // If needed, emit a synthetic event example:

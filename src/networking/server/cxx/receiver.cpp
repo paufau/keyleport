@@ -122,7 +122,7 @@ namespace net
       // Disable UDP connection reset behavior to avoid WSAECONNRESET when ICMP unreachable is received
 #ifdef SIO_UDP_CONNRESET
       DWORD bytesReturned = 0;
-      BOOL  newBehavior = FALSE;
+      BOOL newBehavior = FALSE;
       ::WSAIoctl(sock, SIO_UDP_CONNRESET, &newBehavior, sizeof(newBehavior), NULL, 0, &bytesReturned, NULL, NULL);
 #endif
       // Increase receive buffer
@@ -183,7 +183,7 @@ namespace net
   public:
     explicit CxxReceiver(int port) : port_(port) {}
     void onReceive(ReceiveHandler handler) override { handler_ = std::move(handler); }
-    int  run() override
+    int run() override
     {
       SocketHandle sock = listen_tcp(port_);
       SocketHandle udp = listen_udp(port_);
@@ -338,7 +338,7 @@ namespace net
                 [cfd, handler]() mutable
                 {
                   std::string payload;
-                  auto        recv_all_thread = [](SocketHandle s, std::string& out) -> int
+                  auto recv_all_thread = [](SocketHandle s, std::string& out) -> int
                   {
                     char tbuf[4096];
                     for (;;)
@@ -372,7 +372,7 @@ namespace net
     }
 
   private:
-    int            port_;
+    int port_;
     ReceiveHandler handler_;
   };
 

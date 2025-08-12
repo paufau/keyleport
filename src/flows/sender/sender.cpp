@@ -13,18 +13,18 @@ namespace flows
 
   int run_sender(const cli::Options& opt, net::Server& server, keyboard::Keyboard& kb)
   {
-    auto         s = server.createSender(opt.ip, opt.port);
-    auto         listener = kb.createListener();
+    auto s = server.createSender(opt.ip, opt.port);
+    auto listener = kb.createListener();
     net::Sender* sender_ptr = s.get();
 
     // Aggregator for mouse move coalescing
     struct MoveAggregator
     {
       std::atomic<bool> running{true};
-      std::mutex        m;
-      int               agg_dx{0};
-      int               agg_dy{0};
-      void              add(int dx, int dy)
+      std::mutex m;
+      int agg_dx{0};
+      int agg_dy{0};
+      void add(int dx, int dy)
       {
         if (dx == 0 && dy == 0)
         {

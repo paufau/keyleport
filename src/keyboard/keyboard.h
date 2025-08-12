@@ -13,7 +13,7 @@ namespace keyboard
   public:
     virtual ~Keyboard() = default;
     virtual std::unique_ptr<Listener> createListener() = 0;
-    virtual std::unique_ptr<Emitter>  createEmitter() = 0;
+    virtual std::unique_ptr<Emitter> createEmitter() = 0;
   };
 
   std::unique_ptr<Keyboard> make_keyboard();
