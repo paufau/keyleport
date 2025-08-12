@@ -14,6 +14,15 @@ namespace cli
   Options parse(int argc, char *argv[])
   {
     Options opt{};
+#ifdef _WIN32
+    // On Windows, default to receiver on port 8080 when no args are provided
+    if (argc <= 1)
+    {
+      opt.mode = "receiver";
+      opt.port = 8080;
+      return opt;
+    }
+#endif
     for (int i = 1; i < argc; ++i)
     {
       std::string arg = argv[i];
