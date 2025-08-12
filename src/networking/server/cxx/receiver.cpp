@@ -7,6 +7,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <mstcpip.h>
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -97,9 +98,11 @@ namespace net
       BOOL yes = 1;
       ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&yes), sizeof(yes));
       // Disable UDP connection reset behavior to avoid WSAECONNRESET when ICMP unreachable is received
+#ifdef SIO_UDP_CONNRESET
       DWORD bytesReturned = 0;
       BOOL newBehavior = FALSE;
       ::WSAIoctl(sock, SIO_UDP_CONNRESET, &newBehavior, sizeof(newBehavior), NULL, 0, &bytesReturned, NULL, NULL);
+#endif
       // Increase receive buffer
       int rcvbuf = 1 << 20; // 1MiB
       ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char *>(&rcvbuf), sizeof(rcvbuf));

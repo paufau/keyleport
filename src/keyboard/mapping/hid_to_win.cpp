@@ -106,8 +106,9 @@ namespace keyboard
       case 53:
         return 0x29; // `
       case 49:
-        return 0x2B; // \
-        case 54: return 0x33; // ,
+        return 0x2B; // backslash
+      case 54:
+        return 0x33; // ,
       case 55:
         return 0x34; // .
       case 56:
