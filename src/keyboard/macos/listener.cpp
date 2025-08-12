@@ -86,8 +86,8 @@ namespace keyboard
           case SDL_EVENT_KEY_UP:
           {
             InputEvent ie{};
-            ie.type = 0;
-            ie.action = (ev.type == SDL_EVENT_KEY_DOWN) ? 0 : 1;
+            ie.type = InputEvent::Type::Key;
+            ie.action = (ev.type == SDL_EVENT_KEY_DOWN) ? InputEvent::Action::Down : InputEvent::Action::Up;
             ie.code = static_cast<uint16_t>(ev.key.scancode);
             ie.x = 0;
             ie.y = 0;
@@ -98,8 +98,8 @@ namespace keyboard
           case SDL_EVENT_MOUSE_MOTION:
           {
             InputEvent ie{};
-            ie.type = 1;
-            ie.action = 2;
+            ie.type = InputEvent::Type::Mouse;
+            ie.action = InputEvent::Action::Move;
             ie.code = 0;
             ie.x = ev.motion.x;
             ie.y = ev.motion.y;
@@ -112,8 +112,8 @@ namespace keyboard
           case SDL_EVENT_MOUSE_WHEEL:
           {
             InputEvent ie{};
-            ie.type = 1;
-            ie.action = 3;
+            ie.type = InputEvent::Type::Mouse;
+            ie.action = InputEvent::Action::Scroll;
             ie.code = 0;
             ie.x = 0;
             ie.y = 0;
@@ -125,8 +125,8 @@ namespace keyboard
           case SDL_EVENT_MOUSE_BUTTON_UP:
           {
             InputEvent ie{};
-            ie.type = 1;
-            ie.action = (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN) ? 0 : 1;
+            ie.type = InputEvent::Type::Mouse;
+            ie.action = (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN) ? InputEvent::Action::Down : InputEvent::Action::Up;
             ie.code = static_cast<uint16_t>(ev.button.button);
             ie.x = ev.button.x;
             ie.y = ev.button.y;

@@ -36,8 +36,8 @@ namespace keyboard
       if (!je.is_object())
         continue;
       InputEvent e{};
-      e.type = static_cast<uint8_t>(je.value("type", 0));
-      e.action = static_cast<uint8_t>(je.value("action", 0));
+      e.type = static_cast<InputEvent::Type>(je.value("type", 0));
+      e.action = static_cast<InputEvent::Action>(je.value("action", 0));
       e.code = static_cast<uint16_t>(je.value("code", 0));
       e.x = je.value("x", 0);
       e.y = je.value("y", 0);

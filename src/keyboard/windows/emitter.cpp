@@ -16,18 +16,18 @@ namespace keyboard
     {
       switch (event.type)
       {
-      case 0: // keyboard
-        return emitKey(event.code, event.action == 0 /*down*/);
-      case 1: // mouse
+      case InputEvent::Type::Key: // keyboard
+        return emitKey(event.code, event.action == InputEvent::Action::Down);
+      case InputEvent::Type::Mouse: // mouse
         switch (event.action)
         {
-        case 2:
+        case InputEvent::Action::Move:
           return emitMouseMove(event.dx, event.dy);
-        case 3:
+        case InputEvent::Action::Scroll:
           return emitMouseWheel(event.delta);
-        case 0:
+        case InputEvent::Action::Down:
           return emitMouseButton(event.code, true);
-        case 1:
+        case InputEvent::Action::Up:
           return emitMouseButton(event.code, false);
         default:
           return 0;

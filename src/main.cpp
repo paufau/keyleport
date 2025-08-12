@@ -62,8 +62,19 @@ int main(int argc, char *argv[])
                     {
     if (!batch.empty())
     {
+      bool use_udp = false;
+      for (const auto &e : batch.events) {
+        if (e.type == keyboard::InputEvent::Type::Mouse && (e.action == keyboard::InputEvent::Action::Move || e.action == keyboard::InputEvent::Action::Scroll)) {
+          use_udp = true;
+          break;
+        }
+      }
       const std::string payload = batch.encode();
-      sender_ptr->send(payload);
+      if (use_udp) {
+        sender_ptr->send_udp(payload);
+      } else {
+        sender_ptr->send_tcp(payload);
+      }
     } });
 
   return listener->run();

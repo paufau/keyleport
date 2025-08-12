@@ -103,7 +103,7 @@ namespace net
   public:
     CxxSender(std::string ip, int port) : ip_(std::move(ip)), port_(port) {}
     int run() override { return 0; }
-    int send(const std::string &data) override
+    int send_tcp(const std::string &data) override
     {
       SocketHandle sock = connect_tcp(ip_, port_);
 #ifdef _WIN32
@@ -119,6 +119,59 @@ namespace net
         return 3;
       }
       shutdown_send(sock);
+      close_socket(sock);
+      return 0;
+    }
+
+    int send_udp(const std::string &data) override
+    {
+      if (data.empty())
+        return 0;
+#ifdef _WIN32
+      ensure_wsa();
+#endif
+      SocketHandle sock = ::socket(AF_INET, SOCK_DGRAM, 0);
+#ifdef _WIN32
+      if (sock == INVALID_SOCKET)
+        return 2;
+#else
+      if (sock < 0)
+        return 2;
+#endif
+      sockaddr_in addr{};
+      addr.sin_family = AF_INET;
+      addr.sin_port = htons(static_cast<uint16_t>(port_));
+      if (::inet_pton(AF_INET, ip_.c_str(), &addr.sin_addr) <= 0)
+      {
+        close_socket(sock);
+        return 2;
+      }
+
+#ifdef _WIN32
+      int sent = ::sendto(sock,
+                          data.c_str(),
+                          static_cast<int>(data.size()),
+                          0,
+                          reinterpret_cast<sockaddr *>(&addr),
+                          static_cast<int>(sizeof(addr)));
+      if (sent == SOCKET_ERROR || sent != static_cast<int>(data.size()))
+      {
+        close_socket(sock);
+        return 3;
+      }
+#else
+      ssize_t sent = ::sendto(sock,
+                              data.c_str(),
+                              data.size(),
+                              0,
+                              reinterpret_cast<sockaddr *>(&addr),
+                              sizeof(addr));
+      if (sent < 0 || static_cast<size_t>(sent) != data.size())
+      {
+        close_socket(sock);
+        return 3;
+      }
+#endif
       close_socket(sock);
       return 0;
     }
