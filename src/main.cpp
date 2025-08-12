@@ -13,26 +13,21 @@
 
 int main(int argc, char *argv[])
 {
+  // Parse command-line arguments
   cli::Options opt = cli::parse(argc, argv);
+
   if (opt.help)
   {
     cli::print_usage(argv[0]);
     return 0;
   }
+
   if (!opt.valid)
   {
     std::cout << opt.error << std::endl;
     cli::print_usage(argv[0]);
     return 1;
   }
-
-  if (opt.mode != "sender" && opt.mode != "receiver")
-  {
-    cli::print_usage(argv[0]);
-    return 1;
-  }
-  if (opt.port <= 0)
-    opt.port = 8080; // default
 
   auto server = net::make_server();
   auto kb = keyboard::make_keyboard();
@@ -95,7 +90,7 @@ int main(int argc, char *argv[])
   // Background sender that flushes aggregated movement every 3 ms via UDP
   std::thread moveSender([&]()
                          {
-    int throttle = 16;
+    int throttle = 8;
 
     using namespace std::chrono;
     while (aggregator.running.load(std::memory_order_relaxed)) {

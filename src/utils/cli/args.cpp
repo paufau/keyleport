@@ -56,6 +56,18 @@ namespace cli
         return opt;
       }
     }
+    // Post-parse normalization/validation
+    if (!opt.help)
+    {
+      if (opt.mode != "sender" && opt.mode != "receiver")
+      {
+        set_error(opt, "--mode must be 'sender' or 'receiver'");
+      }
+      if (opt.port <= 0)
+      {
+        opt.port = 8080; // default
+      }
+    }
     return opt;
   }
 
