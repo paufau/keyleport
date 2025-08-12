@@ -4,6 +4,7 @@
 #include "utils/cli/args.h"
 #include "networking/server/server.h"
 #include "keyboard/keyboard.h"
+#include "keyboard/event_batch.h"
 #include <sstream>
 
 int main(int argc, char *argv[])
@@ -30,20 +31,30 @@ int main(int argc, char *argv[])
     opt.port = 8080; // default
 
   auto server = net::make_server();
+  auto kb = keyboard::make_keyboard();
+
   if (opt.mode == "receiver")
   {
+    // Create keyboard emitter and feed decoded events into it
+
+    auto emitter = kb->createEmitter();
+    keyboard::Emitter *emitter_ptr = emitter.get();
+
     auto r = server->createReceiver(opt.port);
-    r->onReceive([](const std::string &payload)
+    r->onReceive([emitter_ptr](const std::string &payload)
                  {
-      if (!payload.empty())
-        std::cout << payload << std::endl; });
+      if (payload.empty()) return; 
+      const keyboard::EventBatch batch = keyboard::EventBatch::decode(payload);
+      if (batch.empty()) return;
+      for (const auto &ev : batch.events) {
+        emitter_ptr->emit(ev);
+      } });
     return r->run();
   }
   if (opt.ip.empty())
     return 2;
   auto s = server->createSender(opt.ip, opt.port);
 
-  auto kb = keyboard::make_keyboard();
   auto listener = kb->createListener();
 
   net::Sender *sender_ptr = s.get();
