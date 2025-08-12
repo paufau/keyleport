@@ -96,11 +96,20 @@ namespace net
         return INVALID_SOCKET;
       BOOL yes = 1;
       ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&yes), sizeof(yes));
+      // Disable UDP connection reset behavior to avoid WSAECONNRESET when ICMP unreachable is received
+      DWORD bytesReturned = 0;
+      BOOL newBehavior = FALSE;
+      ::WSAIoctl(sock, SIO_UDP_CONNRESET, &newBehavior, sizeof(newBehavior), NULL, 0, &bytesReturned, NULL, NULL);
+      // Increase receive buffer
+      int rcvbuf = 1 << 20; // 1MiB
+      ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char *>(&rcvbuf), sizeof(rcvbuf));
 #else
       if (sock < 0)
         return -1;
       int yes = 1;
       ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+      int rcvbuf = 1 << 20; // 1MiB
+      ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
 #endif
       sockaddr_in addr{};
       addr.sin_family = AF_INET;
@@ -203,12 +212,22 @@ namespace net
           addrlen = sizeof(from);
 #ifdef _WIN32
           int n = ::recvfrom(udp, buf, sizeof(buf), 0, reinterpret_cast<sockaddr *>(&from), &addrlen);
-          if (n > 0 && handler_)
-            handler_(std::string(buf, buf + n));
+          if (n > 0)
+          {
+            // Optional: log bytes received for debugging
+            // std::cerr << "[udp recv] " << n << " bytes" << std::endl;
+            if (handler_)
+              handler_(std::string(buf, buf + n));
+          }
 #else
           ssize_t n = ::recvfrom(udp, buf, sizeof(buf), 0, reinterpret_cast<sockaddr *>(&from), &addrlen);
-          if (n > 0 && handler_)
-            handler_(std::string(buf, static_cast<size_t>(n)));
+          if (n > 0)
+          {
+            // Optional: log bytes received for debugging
+            // std::cerr << "[udp recv] " << n << " bytes" << std::endl;
+            if (handler_)
+              handler_(std::string(buf, static_cast<size_t>(n)));
+          }
 #endif
         }
 

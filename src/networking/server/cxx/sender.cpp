@@ -138,6 +138,20 @@ namespace net
       if (sock < 0)
         return 2;
 #endif
+      // Increase send buffer and set small send timeout
+#ifdef _WIN32
+      int sndbuf = 1 << 20; // 1MiB
+      ::setsockopt(sock, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char *>(&sndbuf), sizeof(sndbuf));
+      DWORD timeoutMs = 100; // 100ms
+      ::setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&timeoutMs), sizeof(timeoutMs));
+#else
+      int sndbuf = 1 << 20; // 1MiB
+      ::setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+      timeval tv{};
+      tv.tv_sec = 0;
+      tv.tv_usec = 100 * 1000; // 100ms
+      ::setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+#endif
       sockaddr_in addr{};
       addr.sin_family = AF_INET;
       addr.sin_port = htons(static_cast<uint16_t>(port_));
@@ -147,29 +161,60 @@ namespace net
         return 2;
       }
 
+      // Prefer connected UDP to help routing; fallback to sendto if connect fails
 #ifdef _WIN32
-      int sent = ::sendto(sock,
-                          data.c_str(),
-                          static_cast<int>(data.size()),
-                          0,
-                          reinterpret_cast<sockaddr *>(&addr),
-                          static_cast<int>(sizeof(addr)));
-      if (sent == SOCKET_ERROR || sent != static_cast<int>(data.size()))
+      int rc = ::connect(sock, reinterpret_cast<sockaddr *>(&addr), static_cast<int>(sizeof(addr)));
+      if (rc == 0)
       {
-        close_socket(sock);
-        return 3;
+        int sent = ::send(sock, data.c_str(), static_cast<int>(data.size()), 0);
+        if (sent == SOCKET_ERROR || sent != static_cast<int>(data.size()))
+        {
+          std::cerr << "[udp send] send failed, WSAGetLastError=" << WSAGetLastError() << std::endl;
+          close_socket(sock);
+          return 3;
+        }
+      }
+      else
+      {
+        int sent = ::sendto(sock,
+                            data.c_str(),
+                            static_cast<int>(data.size()),
+                            0,
+                            reinterpret_cast<sockaddr *>(&addr),
+                            static_cast<int>(sizeof(addr)));
+        if (sent == SOCKET_ERROR || sent != static_cast<int>(data.size()))
+        {
+          std::cerr << "[udp send] sendto failed, WSAGetLastError=" << WSAGetLastError() << std::endl;
+          close_socket(sock);
+          return 3;
+        }
       }
 #else
-      ssize_t sent = ::sendto(sock,
-                              data.c_str(),
-                              data.size(),
-                              0,
-                              reinterpret_cast<sockaddr *>(&addr),
-                              sizeof(addr));
-      if (sent < 0 || static_cast<size_t>(sent) != data.size())
+      int rc = ::connect(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr));
+      if (rc == 0)
       {
-        close_socket(sock);
-        return 3;
+        ssize_t sent = ::send(sock, data.c_str(), data.size(), 0);
+        if (sent < 0 || static_cast<size_t>(sent) != data.size())
+        {
+          std::cerr << "[udp send] send failed" << std::endl;
+          close_socket(sock);
+          return 3;
+        }
+      }
+      else
+      {
+        ssize_t sent = ::sendto(sock,
+                                data.c_str(),
+                                data.size(),
+                                0,
+                                reinterpret_cast<sockaddr *>(&addr),
+                                sizeof(addr));
+        if (sent < 0 || static_cast<size_t>(sent) != data.size())
+        {
+          std::cerr << "[udp send] sendto failed" << std::endl;
+          close_socket(sock);
+          return 3;
+        }
       }
 #endif
       close_socket(sock);
