@@ -103,6 +103,8 @@ namespace keyboard
             ie.code = 0;
             ie.x = ev.motion.x;
             ie.y = ev.motion.y;
+            ie.dx = ev.motion.xrel;
+            ie.dy = ev.motion.yrel;
             ie.delta = 0;
             batch.push_back(ie);
             break;
@@ -128,6 +130,8 @@ namespace keyboard
             ie.code = static_cast<uint16_t>(ev.button.button);
             ie.x = ev.button.x;
             ie.y = ev.button.y;
+            ie.dx = 0;
+            ie.dy = 0;
             ie.delta = 0;
             batch.push_back(ie);
             break;

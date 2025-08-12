@@ -22,7 +22,7 @@ namespace keyboard
         switch (event.action)
         {
         case 2:
-          return emitMouseMove(event.x, event.y);
+          return emitMouseMove(event.dx, event.dy);
         case 3:
           return emitMouseWheel(event.delta);
         case 0:
