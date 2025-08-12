@@ -1,4 +1,4 @@
-// Windows emitter implementation using Win32 SendInput
+#ifdef _WIN32
 #include <memory>
 #include <string>
 #include "../emitter.h"
@@ -110,3 +110,4 @@ namespace keyboard
   }
 
 } // namespace keyboard
+#endif

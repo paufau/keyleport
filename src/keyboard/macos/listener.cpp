@@ -1,3 +1,4 @@
+#if defined(__APPLE__) && defined(USE_SDL3)
 #include <memory>
 #include <utility>
 #include <vector>
@@ -163,3 +164,5 @@ namespace keyboard
   }
 
 } // namespace keyboard
+
+#endif
