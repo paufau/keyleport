@@ -68,6 +68,11 @@ if(APPLE OR UNIX)
   endif()
 endif()
 
+# Link Windows system libraries when building on Windows
+if(WIN32)
+  target_link_libraries(keyleport PRIVATE user32)
+endif()
+
 # Require nlohmann_json via FetchContent (header-only)
 include(FetchContent)
 FetchContent_Declare(
