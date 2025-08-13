@@ -22,6 +22,8 @@ endif()
 
 # Remove platform-specific networking folders; use cxx (Asio) implementation
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/server/(macos|windows)/.*\\.cpp$")
+# Remove platform-specific discovery folders; use cxx implementation
+list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/discovery/(macos|windows)/.*\\.cpp$")
 
 add_executable(keyleport ${KEYLEPORT_SOURCES})
 
