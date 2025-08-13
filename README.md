@@ -20,7 +20,7 @@ This project is fully developed and maintained thanks to the generous support of
 | Send TCP/UDP     | ✅    | ✅      | ❌    |
 | Receive TCP/UDP  | ✅    | ✅      | ❌    |
 | Discover Servers | ✅    | ✅      | ❌    |
-| Handle Input     | ✅    | ❌      | ❌    |
+| Capture Input    | ✅    | ❌      | ❌    |
 | Emulate Input    | ❌    | ✅      | ❌    |
 | Display UI       | ❌    | ❌      | ❌    |
 
