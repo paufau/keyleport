@@ -2,16 +2,16 @@
 
 Remote keyboard/mouse input teleportation between machines over network.
 
-## What it does
-
-- Captures keyboard and mouse on the sender and transmits events over network to a receiving device, then emulates input on the receiver.
-- Uses UDP for high-rate mouse move/scroll; uses TCP for key presses.
-
 ## Sponsor & Support
 
 This project is fully developed and maintained thanks to the generous support of its sponsors and contributors.
 
 <a href='https://ko-fi.com/Y8Y315L7NK' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi2.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+
+## What it does
+
+- Captures keyboard and mouse on the sender and transmits events over network to a receiving device, then emulates input on the receiver.
+- Uses UDP for high-rate mouse move/scroll; uses TCP for key presses.
 
 ## Features Support
 
