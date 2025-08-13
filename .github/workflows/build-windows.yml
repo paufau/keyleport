@@ -27,3 +27,4 @@ jobs:
           name: keyleport-windows
           path: |
             build/keyleport.exe
+          retention-days: 5
