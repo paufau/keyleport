@@ -20,36 +20,26 @@ else()
   list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/(macos|windows)/.*\\.cpp$")
 endif()
 
-# If a platform-specific implementation exists (macos on APPLE, windows on WIN32)
-# remove the cxx fallback with the same filename from KEYLEPORT_SOURCES.
-set(PLATFORM_DIR "")
-if(APPLE)
-  set(PLATFORM_DIR "macos")
-elseif(WIN32)
-  set(PLATFORM_DIR "windows")
-endif()
-if(PLATFORM_DIR)
-  file(GLOB_RECURSE PLATFORM_SOURCES CONFIGURE_DEPENDS
-  ${CMAKE_SOURCE_DIR}/src/**/${PLATFORM_DIR}/*.cpp)
-  set(PLATFORM_BASENAMES)
-  foreach(PSRC IN LISTS PLATFORM_SOURCES)
-    get_filename_component(_base ${PSRC} NAME)
-    list(APPEND PLATFORM_BASENAMES ${_base})
-  endforeach()
-  # Remove any cxx fallback file that has a platform-specific counterpart
-  foreach(SRC IN LISTS KEYLEPORT_SOURCES)
-    if(SRC MATCHES ".*/cxx/.*\\.cpp$")
-      get_filename_component(_cxxbase ${SRC} NAME)
-      if(_cxxbase IN_LIST PLATFORM_BASENAMES)
-        list(REMOVE_ITEM KEYLEPORT_SOURCES ${SRC})
-      endif()
-    endif()
-  endforeach()
-endif()
+# Remove platform-specific networking folders; use cxx (Asio) implementation
+list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/server/(macos|windows)/.*\\.cpp$")
 
 add_executable(keyleport ${KEYLEPORT_SOURCES})
 
 target_include_directories(keyleport PRIVATE src)
+
+# Asio (standalone) header-only via FetchContent
+include(FetchContent)
+FetchContent_Declare(
+  asio
+  GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+  GIT_TAG asio-1-28-0
+)
+FetchContent_MakeAvailable(asio)
+# Provide include dir and define ASIO_STANDALONE
+if(DEFINED asio_SOURCE_DIR)
+  target_include_directories(keyleport PRIVATE ${asio_SOURCE_DIR}/asio/include)
+endif()
+target_compile_definitions(keyleport PRIVATE ASIO_STANDALONE)
 
 if(APPLE OR UNIX)
   find_package(PkgConfig QUIET)
