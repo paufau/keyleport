@@ -14,6 +14,8 @@ namespace net
   {
   public:
     DummySender(std::string ip, int port) : ip_(std::move(ip)), port_(port) {}
+    int connect() override { return 1; }
+    int disconnect() override { return 1; }
     int run() override
     {
       std::cerr << "[sender] cxx dummy: networking not supported on this platform (" << ip_ << ":" << port_ << ")\n";

@@ -149,24 +149,36 @@ namespace net
             std::thread(
                 [cfd, handler]() mutable
                 {
-                  std::string payload;
+                  std::string buffer;
                   char tbuf[4096];
                   for (;;)
                   {
                     int n = ::recv(cfd, tbuf, sizeof(tbuf), 0);
-                    if (n < 0)
+                    if (n <= 0)
                     {
                       break;
                     }
-                    if (n == 0)
+                    buffer.append(tbuf, n);
+                    for (;;)
                     {
-                      break;
+                      if (buffer.size() < 4)
+                      {
+                        break;
+                      }
+                      uint32_t nlen_be = 0;
+                      std::memcpy(&nlen_be, buffer.data(), 4);
+                      uint32_t nlen = ntohl(nlen_be);
+                      if (buffer.size() < 4u + nlen)
+                      {
+                        break;
+                      }
+                      std::string msg = buffer.substr(4, nlen);
+                      buffer.erase(0, 4u + nlen);
+                      if (handler)
+                      {
+                        handler(msg);
+                      }
                     }
-                    payload.append(tbuf, n);
-                  }
-                  if (handler)
-                  {
-                    handler(payload);
                   }
                   ::shutdown(cfd, SD_RECEIVE);
                   ::closesocket(cfd);

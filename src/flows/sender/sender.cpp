@@ -36,6 +36,14 @@ namespace flows
     auto listener = kb.createListener();
     net::Sender* sender_ptr = s.get();
 
+    // Establish persistent connections (TCP + UDP) once
+    int connect_rc = sender_ptr->connect();
+    if (connect_rc != 0)
+    {
+      std::cerr << "[sender] failed to connect to " << ip << ":" << opt.port << ", rc=" << connect_rc << std::endl;
+      return connect_rc;
+    }
+
     // Aggregator for mouse move coalescing
     MoveAggregator aggregator;
 
@@ -96,6 +104,7 @@ namespace flows
     {
       moveSender.join();
     }
+    sender_ptr->disconnect();
     return rc;
   }
 

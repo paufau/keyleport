@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -84,20 +85,92 @@ namespace net
   public:
     CxxSender(std::string ip, int port) : ip_(std::move(ip)), port_(port) {}
     int run() override { return 0; }
+
+    int connect() override
+    {
+      ensure_wsa();
+      if (tcp_sock_ == INVALID_SOCKET)
+      {
+        tcp_sock_ = connect_tcp(ip_, port_);
+        if (tcp_sock_ == INVALID_SOCKET)
+        {
+          return 2;
+        }
+        // Reduce latency
+        BOOL yes = 1;
+        ::setsockopt(tcp_sock_, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&yes), sizeof(yes));
+      }
+      if (udp_sock_ == INVALID_SOCKET)
+      {
+        udp_sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
+        if (udp_sock_ == INVALID_SOCKET)
+        {
+          disconnect();
+          return 2;
+        }
+        int sndbuf = 1 << 20; // 1MiB
+        ::setsockopt(udp_sock_, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char*>(&sndbuf), sizeof(sndbuf));
+        DWORD timeoutMs = 100; // 100ms
+        ::setsockopt(udp_sock_, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeoutMs), sizeof(timeoutMs));
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(static_cast<uint16_t>(port_));
+        if (::inet_pton(AF_INET, ip_.c_str(), &addr.sin_addr) <= 0)
+        {
+          disconnect();
+          return 2;
+        }
+        (void)::connect(udp_sock_, reinterpret_cast<sockaddr*>(&addr), static_cast<int>(sizeof(addr)));
+      }
+      return 0;
+    }
+
+    int disconnect() override
+    {
+      if (tcp_sock_ != INVALID_SOCKET)
+      {
+        shutdown_send(tcp_sock_);
+        close_socket(tcp_sock_);
+        tcp_sock_ = INVALID_SOCKET;
+      }
+      if (udp_sock_ != INVALID_SOCKET)
+      {
+        close_socket(udp_sock_);
+        udp_sock_ = INVALID_SOCKET;
+      }
+      return 0;
+    }
     int send_tcp(const std::string& data) override
     {
-      SocketHandle sock = connect_tcp(ip_, port_);
-      if (sock == INVALID_SOCKET)
+      if (tcp_sock_ == INVALID_SOCKET)
       {
-        return 2;
+        int rc = connect();
+        if (rc != 0)
+        {
+          return rc;
+        }
       }
-      if (send_all(sock, data) != 0)
+      // Frame: 4-byte big-endian length + payload
+      std::lock_guard<std::mutex> lk(tcp_mu_);
+      uint32_t nlen = htonl(static_cast<uint32_t>(data.size()));
+      char hdr[4];
+      std::memcpy(hdr, &nlen, sizeof(nlen));
+      if (send_all(tcp_sock_, std::string(hdr, sizeof(hdr))) != 0 || send_all(tcp_sock_, data) != 0)
       {
-        close_socket(sock);
-        return 3;
+        close_socket(tcp_sock_);
+        tcp_sock_ = INVALID_SOCKET;
+        if (connect() != 0)
+        {
+          return 3;
+        }
+        uint32_t nlen2 = htonl(static_cast<uint32_t>(data.size()));
+        char hdr2[4];
+        std::memcpy(hdr2, &nlen2, sizeof(nlen2));
+        if (send_all(tcp_sock_, std::string(hdr2, sizeof(hdr2))) != 0 || send_all(tcp_sock_, data) != 0)
+        {
+          return 3;
+        }
       }
-      shutdown_send(sock);
-      close_socket(sock);
       return 0;
     }
 
@@ -108,54 +181,42 @@ namespace net
         return 0;
       }
       ensure_wsa();
-      SocketHandle sock = ::socket(AF_INET, SOCK_DGRAM, 0);
-      if (sock == INVALID_SOCKET)
+      if (udp_sock_ == INVALID_SOCKET)
       {
-        return 2;
+        int rc = connect();
+        if (rc != 0)
+        {
+          return rc;
+        }
       }
-      int sndbuf = 1 << 20; // 1MiB
-      ::setsockopt(sock, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char*>(&sndbuf), sizeof(sndbuf));
-      DWORD timeoutMs = 100; // 100ms
-      ::setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeoutMs), sizeof(timeoutMs));
-
-      sockaddr_in addr{};
-      addr.sin_family = AF_INET;
-      addr.sin_port = htons(static_cast<uint16_t>(port_));
-      if (::inet_pton(AF_INET, ip_.c_str(), &addr.sin_addr) <= 0)
+      int sent = ::send(udp_sock_, data.c_str(), static_cast<int>(data.size()), 0);
+      if (sent == SOCKET_ERROR || sent != static_cast<int>(data.size()))
       {
-        close_socket(sock);
-        return 2;
-      }
-
-      int rc = ::connect(sock, reinterpret_cast<sockaddr*>(&addr), static_cast<int>(sizeof(addr)));
-      if (rc == 0)
-      {
-        int sent = ::send(sock, data.c_str(), static_cast<int>(data.size()), 0);
+        // attempt sendto fallback
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(static_cast<uint16_t>(port_));
+        if (::inet_pton(AF_INET, ip_.c_str(), &addr.sin_addr) <= 0)
+        {
+          return 2;
+        }
+        sent = ::sendto(udp_sock_, data.c_str(), static_cast<int>(data.size()), 0, reinterpret_cast<sockaddr*>(&addr),
+                        static_cast<int>(sizeof(addr)));
         if (sent == SOCKET_ERROR || sent != static_cast<int>(data.size()))
         {
-          std::cerr << "[udp send] send failed, WSAGetLastError=" << WSAGetLastError() << std::endl;
-          close_socket(sock);
+          std::cerr << "[udp send] failed on persistent socket, WSAGetLastError=" << WSAGetLastError() << std::endl;
           return 3;
         }
       }
-      else
-      {
-        int sent = ::sendto(sock, data.c_str(), static_cast<int>(data.size()), 0, reinterpret_cast<sockaddr*>(&addr),
-                            static_cast<int>(sizeof(addr)));
-        if (sent == SOCKET_ERROR || sent != static_cast<int>(data.size()))
-        {
-          std::cerr << "[udp send] sendto failed, WSAGetLastError=" << WSAGetLastError() << std::endl;
-          close_socket(sock);
-          return 3;
-        }
-      }
-      close_socket(sock);
       return 0;
     }
 
   private:
     std::string ip_;
     int port_;
+    SocketHandle tcp_sock_ = INVALID_SOCKET;
+    SocketHandle udp_sock_ = INVALID_SOCKET;
+    std::mutex tcp_mu_;
   };
 
   std::unique_ptr<Sender> make_sender(const std::string& ip, int port)
