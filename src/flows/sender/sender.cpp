@@ -44,8 +44,9 @@ namespace flows
       return connect_rc;
     }
 
-    // Aggregator for mouse move coalescing
-    MoveAggregator aggregator;
+    // Aggregators for mouse move and scroll coalescing
+    MoveAggregator moveAgg;
+    MoveAggregator scrollAgg;
 
     // Background sender that flushes aggregated movement every ~3-8 ms via UDP
     std::thread moveSender(
@@ -53,11 +54,11 @@ namespace flows
         {
           using namespace std::chrono;
           const int throttle_ms = 8; // current throttle; adjust as needed
-          while (aggregator.running.load(std::memory_order_relaxed))
+          while (moveAgg.running.load(std::memory_order_relaxed))
           {
             std::this_thread::sleep_for(milliseconds(throttle_ms));
             int dx = 0, dy = 0;
-            aggregator.take(dx, dy);
+            moveAgg.take(dx, dy);
             if (dx == 0 && dy == 0)
             {
               continue;
@@ -74,35 +75,64 @@ namespace flows
           }
         });
 
+    // Background sender that flushes aggregated scroll every ~3-8 ms via UDP
+    std::thread scrollSender(
+        [&]()
+        {
+          using namespace std::chrono;
+          const int throttle_ms = 8; // keep consistent with move for now
+          while (scrollAgg.running.load(std::memory_order_relaxed))
+          {
+            std::this_thread::sleep_for(milliseconds(throttle_ms));
+            int sx = 0, sy = 0;
+            scrollAgg.take(sx, sy);
+            if (sx == 0 && sy == 0)
+            {
+              continue;
+            }
+            keyboard::InputEvent sc{};
+            sc.type = keyboard::InputEvent::Type::Mouse;
+            sc.action = keyboard::InputEvent::Action::Scroll;
+            sc.code = 0;
+            sc.dx = sx;
+            sc.dy = sy;
+            const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
+            std::cerr << "[sender] via UDP (coalesced scroll): " << payload << std::endl;
+            sender_ptr->send_udp(payload);
+          }
+        });
+
     listener->onEvent(
-        [sender_ptr, &aggregator](const keyboard::InputEvent& ev)
+        [sender_ptr, &moveAgg, &scrollAgg](const keyboard::InputEvent& ev)
         {
           // Coalesce mouse Move events
           if (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Move)
           {
-            aggregator.add(ev.dx, ev.dy);
+            moveAgg.add(ev.dx, ev.dy);
             return;
           }
-          // All other events are sent immediately (Scroll over UDP, rest over TCP)
-          const bool use_udp =
-              (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Scroll);
+          // Coalesce mouse Scroll events
+          if (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Scroll)
+          {
+            scrollAgg.add(ev.dx, ev.dy);
+            return;
+          }
+          // All other events are sent immediately over TCP
           const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-          std::cerr << "[sender] via " << (use_udp ? "UDP" : "TCP") << ": " << payload << std::endl;
-          if (use_udp)
-          {
-            sender_ptr->send_udp(payload);
-          }
-          else
-          {
-            sender_ptr->send_tcp(payload);
-          }
+          std::cerr << "[sender] via TCP: " << payload << std::endl;
+          sender_ptr->send_tcp(payload);
         });
 
     int rc = listener->run();
-    aggregator.running.store(false, std::memory_order_relaxed);
+    moveAgg.running.store(false, std::memory_order_relaxed);
+    scrollAgg.running.store(false, std::memory_order_relaxed);
     if (moveSender.joinable())
     {
       moveSender.join();
+    }
+    if (scrollSender.joinable())
+    {
+      scrollSender.join();
     }
     sender_ptr->disconnect();
     return rc;
