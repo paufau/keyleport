@@ -1,5 +1,6 @@
 #include "../discovery.h"
 
+#include "networking/server/server.h"
 #include "utils/get_platform/platform.h"
 
 #include <asio.hpp>
@@ -170,11 +171,30 @@ namespace net
         }
         running_ = true;
         service_port_ = servicePort;
-        // Also act as a responder so that multiple nodes running discovery can find each other
-        responder_ = make_responder(service_port_, "keyleport");
-        if (responder_)
+        // Create networking server and start local receiver for inbound messages
+        if (!server_)
         {
-          responder_->start_async();
+          server_ = net::make_server();
+        }
+        if (!receiver_)
+        {
+          receiver_ = server_->createReceiver(service_port_);
+          receiver_->onReceive(
+              [this](const std::string& msg)
+              {
+                MessageHandler cb;
+                {
+                  std::lock_guard<std::mutex> lk(m_);
+                  cb = msg_handler_;
+                }
+                if (cb)
+                {
+                  // NOTE: Receiver API does not provide remote endpoint; emit with unknown candidate
+                  entities::ConnectionCandidate cc(false, "", "", std::to_string(service_port_));
+                  cb(cc, msg);
+                }
+              });
+          recv_thr_ = std::thread([this]() { receiver_->run(); });
         }
         thr_ = std::thread([this] { this->loop(); });
       }
@@ -189,11 +209,21 @@ namespace net
         {
           thr_.join();
         }
-        // Stop responder by destroying it
-        responder_.reset();
-
-        // Close all TCP sessions
-        close_all_sessions();
+        // We do not stop the receiver thread here as the Receiver API is blocking.
+        // It will live for the process lifetime. Senders are cleaned up below.
+        // Disconnect and clear all senders
+        std::unordered_map<std::string, std::unique_ptr<net::Sender>> to_close;
+        {
+          std::lock_guard<std::mutex> lk(m_);
+          to_close.swap(senders_);
+        }
+        for (auto& kv : to_close)
+        {
+          if (kv.second)
+          {
+            kv.second->disconnect();
+          }
+        }
       }
 
     private:
@@ -362,9 +392,8 @@ namespace net
               {
                 cb(cc);
               }
-
-              // Start TCP session to receive messages from this server
-              start_session_for(cc);
+              // Create and connect a Sender for this server for future sendMessage calls
+              ensure_sender_for(cc);
             }
           }
 
@@ -393,7 +422,8 @@ namespace net
               const std::string k = cand.ip() + ":" + cand.port();
               seen.erase(k);
               lostCb(cand);
-              close_session_for_key(k);
+              // Remove associated sender if any
+              remove_sender_for_key(k);
             }
           }
         }
@@ -405,255 +435,72 @@ namespace net
         return running_;
       }
 
-      // Session management
-      struct Session
-      {
-        std::shared_ptr<asio::io_context> io;
-        std::shared_ptr<asio::ip::tcp::socket> sock;
-        std::thread thr;
-        entities::ConnectionCandidate candidate{false, "", "", ""};
-      };
-
       static std::string key_for(const entities::ConnectionCandidate& c) { return c.ip() + ":" + c.port(); }
 
-      void start_session_for(const entities::ConnectionCandidate& c)
+      // Ensure a connected Sender exists for the given candidate
+      void ensure_sender_for(const entities::ConnectionCandidate& c)
       {
         const std::string key = key_for(c);
         std::lock_guard<std::mutex> lk(m_);
-        if (sessions_.count(key))
+        if (!server_)
         {
-          return; // already started
+          server_ = net::make_server();
         }
-        auto io = std::make_shared<asio::io_context>();
-        auto sock = std::make_shared<asio::ip::tcp::socket>(*io);
-        // Initialize session entry without copying std::thread
-        Session& entry = sessions_[key];
-        entry.io = io;
-        entry.sock = sock;
-        entry.candidate = c;
-        entry.thr = std::thread([this, key]() { this->session_thread(key); });
-      }
-
-      void session_thread(std::string key)
-      {
-        std::shared_ptr<asio::io_context> io;
-        std::shared_ptr<asio::ip::tcp::socket> sock;
-        entities::ConnectionCandidate cand{false, "", "", ""};
-        {
-          std::lock_guard<std::mutex> lk(m_);
-          auto it = sessions_.find(key);
-          if (it == sessions_.end())
-          {
-            return;
-          }
-          io = it->second.io;
-          sock = it->second.sock;
-          cand = it->second.candidate;
-        }
-
-        asio::error_code ec;
-        // Connect
-        asio::ip::tcp::resolver res(*io);
-        auto eps = res.resolve(cand.ip(), cand.port(), ec);
-        if (ec)
+        if (senders_.find(key) != senders_.end())
         {
           return;
         }
-        asio::connect(*sock, eps, ec);
-        if (ec)
+        auto s = server_->createSender(c.ip(), std::atoi(c.port().c_str()));
+        if (s)
         {
-          return;
-        }
-        asio::ip::tcp::no_delay nd(true);
-        sock->set_option(nd, ec);
-
-        std::vector<char> buffer;
-        buffer.reserve(4096);
-        for (;;)
-        {
-          char temp[4096];
-          size_t n = sock->read_some(asio::buffer(temp, sizeof(temp)), ec);
-          if (ec)
-          {
-            break;
-          }
-          buffer.insert(buffer.end(), temp, temp + n);
-          // parse frames: 4-byte big-endian length + payload
-          for (;;)
-          {
-            if (buffer.size() < 4)
-            {
-              break;
-            }
-            uint32_t nlen_be = 0;
-            std::memcpy(&nlen_be, buffer.data(), 4);
-            uint32_t nlen = ntohl(nlen_be);
-            if (buffer.size() < 4u + nlen)
-            {
-              break;
-            }
-            std::string msg(buffer.begin() + 4, buffer.begin() + 4 + nlen);
-            buffer.erase(buffer.begin(), buffer.begin() + 4 + nlen);
-            MessageHandler cb;
-            {
-              std::lock_guard<std::mutex> lk2(m_);
-              cb = msg_handler_;
-            }
-            if (cb)
-            {
-              cb(cand, msg);
-            }
-          }
-        }
-        // On error/exit: close and remove session
-        close_session_for_key(key);
-      }
-
-      void close_session_for_key(const std::string& key)
-      {
-        Session toClose;
-        {
-          std::lock_guard<std::mutex> lk(m_);
-          auto it = sessions_.find(key);
-          if (it == sessions_.end())
-          {
-            return;
-          }
-          toClose = std::move(it->second);
-          sessions_.erase(it);
-        }
-        asio::error_code ec;
-        if (toClose.sock)
-        {
-          toClose.sock->shutdown(asio::ip::tcp::socket::shutdown_both, ec);
-          toClose.sock->close(ec);
-        }
-        if (toClose.thr.joinable())
-        {
-          if (std::this_thread::get_id() == toClose.thr.get_id())
-          {
-            // Can't join self; detach to avoid std::terminate on destruction
-            toClose.thr.detach();
-          }
-          else
-          {
-            toClose.thr.join();
-          }
+          s->connect();
+          senders_[key] = std::move(s);
         }
       }
 
-      void close_all_sessions()
+      void remove_sender_for_key(const std::string& key)
       {
-        std::vector<std::string> keys;
+        std::lock_guard<std::mutex> lk(m_);
+        auto it = senders_.find(key);
+        if (it != senders_.end())
         {
-          std::lock_guard<std::mutex> lk(m_);
-          for (const auto& kv : sessions_)
+          if (it->second)
           {
-            keys.push_back(kv.first);
+            it->second->disconnect();
           }
-        }
-        for (const auto& k : keys)
-        {
-          close_session_for_key(k);
+          senders_.erase(it);
         }
       }
 
       int sendMessage(const entities::ConnectionCandidate& target, const std::string& message) override
       {
         const std::string key = key_for(target);
-        std::shared_ptr<asio::ip::tcp::socket> sock;
+        net::Sender* s = nullptr;
         {
           std::lock_guard<std::mutex> lk(m_);
-          auto it = sessions_.find(key);
-          if (it == sessions_.end())
+          auto it = senders_.find(key);
+          if (it != senders_.end())
           {
-            // No session yet: try a one-off synchronous connect-and-send
-            asio::io_context io;
-            asio::error_code ec;
-            asio::ip::tcp::resolver res(io);
-            auto eps = res.resolve(target.ip(), target.port(), ec);
-            if (ec)
-            {
-              return 2;
-            }
-            asio::ip::tcp::socket tmp(io);
-            asio::connect(tmp, eps, ec);
-            if (ec)
-            {
-              return 2;
-            }
-            asio::ip::tcp::no_delay nd(true);
-            tmp.set_option(nd, ec);
-            uint32_t nlen = htonl(static_cast<uint32_t>(message.size()));
-            char hdr[4];
-            std::memcpy(hdr, &nlen, 4);
-            asio::write(tmp, asio::buffer(hdr, 4), ec);
-            if (ec)
-            {
-              return 2;
-            }
-            asio::write(tmp, asio::buffer(message.data(), message.size()), ec);
-            if (ec)
-            {
-              return 2;
-            }
-            // Fire-and-forget: close connection; also spin up a session for future messages
-            start_session_for(target);
-            return 0;
+            s = it->second.get();
           }
-          sock = it->second.sock;
         }
-        if (!sock || !sock->is_open())
+        if (!s)
         {
-          // Try the same one-off fallback when socket isn't open
-          asio::io_context io;
-          asio::error_code ec;
-          asio::ip::tcp::resolver res(io);
-          auto eps = res.resolve(target.ip(), target.port(), ec);
-          if (ec)
+          // Create sender without holding the lock to avoid deadlock
+          ensure_sender_for(target);
+          std::lock_guard<std::mutex> lk(m_);
+          auto it = senders_.find(key);
+          if (it == senders_.end())
           {
             return 2;
           }
-          asio::ip::tcp::socket tmp(io);
-          asio::connect(tmp, eps, ec);
-          if (ec)
-          {
-            return 2;
-          }
-          asio::ip::tcp::no_delay nd(true);
-          tmp.set_option(nd, ec);
-          uint32_t nlen = htonl(static_cast<uint32_t>(message.size()));
-          char hdr[4];
-          std::memcpy(hdr, &nlen, 4);
-          asio::write(tmp, asio::buffer(hdr, 4), ec);
-          if (ec)
-          {
-            return 2;
-          }
-          asio::write(tmp, asio::buffer(message.data(), message.size()), ec);
-          if (ec)
-          {
-            return 2;
-          }
-          start_session_for(target);
-          return 0;
+          s = it->second.get();
         }
-        // frame and send
-        uint32_t nlen = htonl(static_cast<uint32_t>(message.size()));
-        char hdr[4];
-        std::memcpy(hdr, &nlen, 4);
-        asio::error_code ec;
-        asio::write(*sock, asio::buffer(hdr, 4), ec);
-        if (ec)
+        if (!s)
         {
           return 2;
         }
-        asio::write(*sock, asio::buffer(message.data(), message.size()), ec);
-        if (ec)
-        {
-          return 2;
-        }
-        return 0;
+        return s->send_tcp(message);
       }
 
       mutable std::mutex m_;
@@ -663,8 +510,11 @@ namespace net
       LostHandler lost_handler_;
       MessageHandler msg_handler_;
       std::thread thr_;
-      std::unique_ptr<DiscoveryResponder> responder_;
-      std::unordered_map<std::string, Session> sessions_;
+      // Networking components for receiving and sending
+      std::unique_ptr<net::Server> server_;
+      std::unique_ptr<net::Receiver> receiver_;
+      std::thread recv_thr_;
+      std::unordered_map<std::string, std::unique_ptr<net::Sender>> senders_;
     };
 
     // Singleton accessor implementation
