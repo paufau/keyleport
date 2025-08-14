@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 #include <string>
+// extras
+#include <cstdlib>
 
 // SDL3 headers
 #include <SDL3/SDL.h>
@@ -65,6 +67,37 @@ namespace gui
 
       // Setup Dear ImGui style
       ImGui::StyleColorsDark();
+
+      // Make default font/UI a bit larger and respect system/monitor scale.
+      // SDL/ImGui backends handle HiDPI framebuffer, but we still scale UI metrics
+      // and font rendering to track the system content scale.
+      {
+        // Derive system content scale from window logical vs pixel size
+        int lw = 0, lh = 0, pw = 0, ph = 0;
+        SDL_GetWindowSize(window_, &lw, &lh);
+        SDL_GetWindowSizeInPixels(window_, &pw, &ph);
+        float sx = (lw > 0) ? (float)pw / (float)lw : 1.0f;
+        float sy = (lh > 0) ? (float)ph / (float)lh : 1.0f;
+        // Use the average content scale to be conservative across dimensions
+        float system_scale = (sx > 0.0f && sy > 0.0f) ? (sx + sy) * 0.5f : 1.0f;
+
+        // Baseline bump above ImGui defaults ("a bit larger")
+        const float baseline_scale = 1.0f;
+        const float scale = baseline_scale * system_scale;
+
+        // Scale widget metrics to match font size increase
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.ScaleAllSizes(scale);
+
+        // Rasterize font at target pixel height for crisp text
+        ImGuiIO& io = ImGui::GetIO();
+        io.Fonts->Clear();
+        ImFontConfig cfg;
+
+        cfg.SizePixels = 24.0f * scale; // ImGui default is ~13px; scale to target
+        io.Fonts->AddFontDefault(&cfg);
+        io.FontGlobalScale = 1.0f; // avoid atlas scaling blur
+      }
 
       // Setup Platform/Renderer backends
       ImGui_ImplSDL3_InitForSDLRenderer(window_, renderer_);
