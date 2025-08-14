@@ -5,7 +5,8 @@ set -euo pipefail
 mkdir -p build
 
 # Always (re)configure CMake to pick up CMakeLists changes
-cmake -S . -B build
+# Forward any extra args to CMake configuration (e.g. generator, toolchain)
+cmake -S . -B build "$@"
 
 # Build
 cmake --build build -j
