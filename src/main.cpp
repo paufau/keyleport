@@ -1,5 +1,7 @@
 #include "flows/receiver/receiver.h"
 #include "flows/sender/sender.h"
+#include "gui/framework/window.h"
+#include "gui/scenes/my_custom_scene.h"
 #include "keyboard/input_event.h"
 #include "keyboard/keyboard.h"
 #include "networking/server/server.h"
@@ -31,13 +33,23 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  auto server = net::make_server();
-  auto kb = keyboard::make_keyboard();
-
-  if (opt.mode == "receiver")
+  // Initiate a UIWindow & UIScene and run UI loop
+  gui::framework::init_window();
+  MyCustomScene scene;
+  gui::framework::set_window_scene(&scene);
+  while (gui::framework::window_frame())
   {
-    return flows::run_receiver(opt, *server, *kb);
+    // No-op; frame is driven by window
   }
+  gui::framework::deinit_window();
 
-  return flows::run_sender(opt, *server, *kb);
+  // auto server = net::make_server();
+  // auto kb = keyboard::make_keyboard();
+
+  // if (opt.mode == "receiver")
+  // {
+  //   return flows::run_receiver(opt, *server, *kb);
+  // }
+
+  // return flows::run_sender(opt, *server, *kb);
 }

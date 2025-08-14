@@ -48,7 +48,6 @@ if(APPLE OR UNIX)
   if(PkgConfig_FOUND)
     pkg_check_modules(SDL3 QUIET sdl3)
     if(SDL3_FOUND)
-      target_compile_definitions(keyleport PRIVATE USE_SDL3)
       target_include_directories(keyleport PRIVATE ${SDL3_INCLUDE_DIRS})
       target_link_libraries(keyleport PRIVATE ${SDL3_LINK_LIBRARIES})
     endif()
@@ -69,6 +68,61 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 target_link_libraries(keyleport PRIVATE nlohmann_json::nlohmann_json)
+
+# Dear ImGui (core + optional SDL3 backend)
+option(IMGUI_BUILD_DEMO "Build Dear ImGui demo file" OFF)
+include(FetchContent)
+FetchContent_Declare(
+  imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG v1.91.0
+)
+FetchContent_MakeAvailable(imgui)
+
+# Create a small static lib for core ImGui sources
+if(DEFINED imgui_SOURCE_DIR)
+  set(IMGUI_CORE_SOURCES
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  )
+  if(IMGUI_BUILD_DEMO)
+    list(APPEND IMGUI_CORE_SOURCES ${imgui_SOURCE_DIR}/imgui_demo.cpp)
+  endif()
+
+  add_library(imgui STATIC ${IMGUI_CORE_SOURCES})
+  target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+  # Silence some deprecation warnings on macOS, keep tidy builds
+  if(APPLE)
+    target_compile_definitions(imgui PRIVATE IMGUI_DISABLE_OSX_FUNCTION_OBSOLETE)
+  endif()
+
+  # Optional SDL3 backend (platform + renderer using SDL_Renderer)
+  if(TARGET keyleport AND DEFINED SDL3_FOUND AND SDL3_FOUND)
+    add_library(imgui_backend_sdl3 STATIC
+      ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+      ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp
+    )
+    target_link_libraries(imgui_backend_sdl3 PUBLIC imgui ${SDL3_LINK_LIBRARIES})
+    target_include_directories(imgui_backend_sdl3 PUBLIC ${SDL3_INCLUDE_DIRS})
+  # ImGui's SDL3 backend still uses old names in some places; enable SDL old names for compatibility
+  target_compile_definitions(imgui_backend_sdl3 PRIVATE SDL_ENABLE_OLD_NAMES)
+    # Consumers can just link this one target to get ImGui + SDL3 backend
+    add_library(imgui::sdl3 ALIAS imgui_backend_sdl3)
+  endif()
+
+  # Alias for the core target for cleaner linking
+  add_library(imgui::imgui ALIAS imgui)
+endif()
+
+# Link ImGui (core) to our executable; backend is optional and can be linked by users of SDL3 code
+target_link_libraries(keyleport PRIVATE imgui::imgui)
+
+# If SDL3 is available, link the app with the ImGui SDL3 backend as well
+if(TARGET imgui_backend_sdl3)
+  target_link_libraries(keyleport PRIVATE imgui_backend_sdl3)
+endif()
 
 # Formatting helper (optional; requires clang-format installed)
 find_program(CLANG_FORMAT_BIN NAMES clang-format)

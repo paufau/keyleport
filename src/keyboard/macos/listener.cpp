@@ -1,4 +1,4 @@
-#if defined(__APPLE__) && defined(USE_SDL3)
+#if defined(__APPLE__)
 #include "../listener.h"
 
 #include <SDL3/SDL.h>
