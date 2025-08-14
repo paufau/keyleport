@@ -567,16 +567,76 @@ namespace net
           auto it = sessions_.find(key);
           if (it == sessions_.end())
           {
-            // Start session lazily and retry
-            // Note: sending will fail first time; caller can retry shortly
+            // No session yet: try a one-off synchronous connect-and-send
+            asio::io_context io;
+            asio::error_code ec;
+            asio::ip::tcp::resolver res(io);
+            auto eps = res.resolve(target.ip(), target.port(), ec);
+            if (ec)
+            {
+              return 2;
+            }
+            asio::ip::tcp::socket tmp(io);
+            asio::connect(tmp, eps, ec);
+            if (ec)
+            {
+              return 2;
+            }
+            asio::ip::tcp::no_delay nd(true);
+            tmp.set_option(nd, ec);
+            uint32_t nlen = htonl(static_cast<uint32_t>(message.size()));
+            char hdr[4];
+            std::memcpy(hdr, &nlen, 4);
+            asio::write(tmp, asio::buffer(hdr, 4), ec);
+            if (ec)
+            {
+              return 2;
+            }
+            asio::write(tmp, asio::buffer(message.data(), message.size()), ec);
+            if (ec)
+            {
+              return 2;
+            }
+            // Fire-and-forget: close connection; also spin up a session for future messages
             start_session_for(target);
-            return 1; // not connected yet
+            return 0;
           }
           sock = it->second.sock;
         }
         if (!sock || !sock->is_open())
         {
-          return 1;
+          // Try the same one-off fallback when socket isn't open
+          asio::io_context io;
+          asio::error_code ec;
+          asio::ip::tcp::resolver res(io);
+          auto eps = res.resolve(target.ip(), target.port(), ec);
+          if (ec)
+          {
+            return 2;
+          }
+          asio::ip::tcp::socket tmp(io);
+          asio::connect(tmp, eps, ec);
+          if (ec)
+          {
+            return 2;
+          }
+          asio::ip::tcp::no_delay nd(true);
+          tmp.set_option(nd, ec);
+          uint32_t nlen = htonl(static_cast<uint32_t>(message.size()));
+          char hdr[4];
+          std::memcpy(hdr, &nlen, 4);
+          asio::write(tmp, asio::buffer(hdr, 4), ec);
+          if (ec)
+          {
+            return 2;
+          }
+          asio::write(tmp, asio::buffer(message.data(), message.size()), ec);
+          if (ec)
+          {
+            return 2;
+          }
+          start_session_for(target);
+          return 0;
         }
         // frame and send
         uint32_t nlen = htonl(static_cast<uint32_t>(message.size()));
