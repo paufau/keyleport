@@ -1,5 +1,7 @@
 #include "home_scene.h"
 
+#include "gui/framework/ui_window.h"
+#include "gui/scenes/sender/sender_scene.h"
 #include "store.h"
 
 #include <imgui.h>
@@ -49,7 +51,9 @@ void HomeScene::render()
       ImGui::BeginDisabled(d.is_busy());
       if (ImGui::Button((std::string("Connect##") + std::to_string(i)).c_str()))
       {
-        // No-op for now
+        // Persist selected device and set sender scene
+        store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(d));
+        gui::framework::set_window_scene<SenderScene>();
       }
       ImGui::EndDisabled();
       ++i;

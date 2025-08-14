@@ -15,7 +15,6 @@ namespace store
 
   inline void init()
   {
-    // Ensure atoms are initialized to valid values before first get() usage
-    connection_state().available_devices.set(std::vector<entities::ConnectionCandidate>{});
+    connection_state().init();
   }
 } // namespace store

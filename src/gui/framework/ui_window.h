@@ -2,6 +2,9 @@
 
 #include "ui_scene.h"
 
+#include <memory>
+#include <utility>
+
 namespace gui
 {
   namespace framework
@@ -31,6 +34,17 @@ namespace gui
 
     // Set or replace the key scene on the window singleton
     void set_window_scene(UIScene* scene);
+
+    // Convenience: set scene by type. Holds a static instance per T for the app lifetime.
+    template <typename T, typename... Args> void set_window_scene(Args&&... args)
+    {
+      static std::unique_ptr<T> holder;
+      if (!holder)
+      {
+        holder.reset(new T(std::forward<Args>(args)...));
+      }
+      set_window_scene(static_cast<UIScene*>(holder.get()));
+    }
 
     // Run one UI frame; returns false if the window requested quit.
     bool window_frame();
