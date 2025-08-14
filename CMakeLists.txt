@@ -62,6 +62,11 @@ endif()
 # Link Windows system libraries when building on Windows
 if(WIN32)
   target_link_libraries(keyleport PRIVATE user32 ws2_32 SDL3::SDL3)
+  # Copy SDL3 runtime next to the executable for distribution
+  add_custom_command(TARGET keyleport POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:SDL3::SDL3>
+      $<TARGET_FILE_DIR:keyleport>)
 endif()
 
 # Require nlohmann_json via FetchContent (header-only)
@@ -132,6 +137,17 @@ target_link_libraries(keyleport PRIVATE imgui::imgui)
 if(TARGET imgui_backend_sdl3)
   target_link_libraries(keyleport PRIVATE imgui_backend_sdl3)
 endif()
+
+# Install and package (bundle SDL3 on Windows)
+install(TARGETS keyleport RUNTIME DESTINATION .)
+if(WIN32)
+  install(FILES $<TARGET_FILE:SDL3::SDL3> DESTINATION .)
+endif()
+
+set(CPACK_GENERATOR "ZIP")
+set(CPACK_PACKAGE_NAME "keyleport")
+set(CPACK_PACKAGE_VERSION "0.1.0")
+include(CPack)
 
 # Formatting helper (optional; requires clang-format installed)
 find_program(CLANG_FORMAT_BIN NAMES clang-format)
