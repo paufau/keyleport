@@ -176,6 +176,20 @@ namespace gui
             running = false;
           }
         }
+
+        UIInputEvent input_event;
+        input_event.raw_event = ev;
+
+        if (scene_)
+        {
+          // Pass the event to the current scene
+          scene_->handleInput(input_event);
+          if (!input_event.should_propagate)
+          {
+            continue; // Stop further processing if propagation is stopped
+          }
+        }
+
         ImGui_ImplSDL3_ProcessEvent(&ev);
       }
 
