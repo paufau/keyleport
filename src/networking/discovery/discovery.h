@@ -34,8 +34,12 @@ namespace net
     {
     public:
       using DiscoveredHandler = std::function<void(const entities::ConnectionCandidate&)>;
+      using LostHandler = std::function<void(const entities::ConnectionCandidate&)>;
       virtual ~Discovery() = default;
       virtual void onDiscovered(DiscoveredHandler handler) = 0;
+      // Called when a previously discovered device is no longer accessible.
+      // The argument identifies which server was lost.
+      virtual void onLost(LostHandler handler) = 0;
       virtual void start_discovery(int servicePort) = 0;
       virtual void stop_discovery() = 0;
     };

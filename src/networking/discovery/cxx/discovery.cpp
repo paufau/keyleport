@@ -11,6 +11,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -126,6 +127,12 @@ namespace net
         handler_ = std::move(handler);
       }
 
+      void onLost(LostHandler handler) override
+      {
+        std::lock_guard<std::mutex> lk(m_);
+        lost_handler_ = std::move(handler);
+      }
+
       void start_discovery(int servicePort) override
       {
         std::lock_guard<std::mutex> lk(m_);
@@ -178,8 +185,13 @@ namespace net
         asio::ip::udp::endpoint mcast(asio::ip::make_address_v4("239.255.255.250"),
                                       static_cast<unsigned short>(kDiscoveryPort));
 
-        // to de-duplicate endpoints (ip:port)
-        std::unordered_set<std::string> seen;
+        // Track last-seen timestamps per endpoint key ip:port
+        struct SeenEntry
+        {
+          std::chrono::steady_clock::time_point last_seen;
+          entities::ConnectionCandidate candidate{false, "", "", ""};
+        };
+        std::unordered_map<std::string, SeenEntry> seen;
 
         // Collect local IPs to suppress self-discovery
         std::unordered_set<std::string> local_ips;
@@ -296,20 +308,57 @@ namespace net
               continue;
             }
             const std::string key = ip + ":" + std::to_string(parsed_port);
-            if (!seen.insert(key).second)
-            {
-              continue; // already reported
-            }
 
-            DiscoveredHandler cb;
+            // Update last seen and notify discovery if it's a new endpoint
+            bool is_new = (seen.find(key) == seen.end());
+            auto now = std::chrono::steady_clock::now();
+            entities::ConnectionCandidate cc(/*is_busy=*/false, name, ip, std::to_string(parsed_port));
+            auto& entry = seen[key];
+            if (is_new)
             {
-              std::lock_guard<std::mutex> lk(m_);
-              cb = handler_;
+              entry.candidate = cc;
             }
-            if (cb)
+            entry.last_seen = now;
+
+            if (is_new)
             {
-              entities::ConnectionCandidate cc(/*is_busy=*/false, name, ip, std::to_string(parsed_port));
-              cb(cc);
+              DiscoveredHandler cb;
+              {
+                std::lock_guard<std::mutex> lk(m_);
+                cb = handler_;
+              }
+              if (cb)
+              {
+                cb(cc);
+              }
+            }
+          }
+
+          // After the receive window, evict and notify lost endpoints
+          const auto now = std::chrono::steady_clock::now();
+          const auto lost_timeout = std::chrono::seconds(2); // not seen for >2s considered lost
+
+          LostHandler lostCb;
+          {
+            std::lock_guard<std::mutex> lk(m_);
+            lostCb = lost_handler_;
+          }
+
+          if (lostCb)
+          {
+            std::vector<entities::ConnectionCandidate> to_remove;
+            for (const auto& kv : seen)
+            {
+              if (now - kv.second.last_seen > lost_timeout)
+              {
+                to_remove.push_back(kv.second.candidate);
+              }
+            }
+            for (const auto& cand : to_remove)
+            {
+              const std::string k = cand.ip() + ":" + cand.port();
+              seen.erase(k);
+              lostCb(cand);
             }
           }
         }
@@ -325,6 +374,7 @@ namespace net
       bool running_ = false;
       int service_port_ = 0;
       DiscoveredHandler handler_;
+      LostHandler lost_handler_;
       std::thread thr_;
       std::unique_ptr<DiscoveryResponder> responder_;
     };

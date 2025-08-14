@@ -49,6 +49,16 @@ int main(int argc, char* argv[])
         store::connection_state().available_devices.get().push_back(cc);
       });
 
+  disc->onLost(
+      [&](const entities::ConnectionCandidate& cc)
+      {
+        std::cerr << "[discovery] Lost server: " << cc.ip() << ":" << cc.port() << std::endl;
+        auto& devices = store::connection_state().available_devices.get();
+        devices.erase(std::remove_if(devices.begin(), devices.end(),
+                                     [&](const entities::ConnectionCandidate& d) { return d.ip() == cc.ip(); }),
+                      devices.end());
+      });
+
   // Initiate a UIWindow & UIScene and run UI loop
   gui::framework::init_window();
   HomeScene scene;
