@@ -29,7 +29,98 @@ namespace net
     {
       static const char* kProbePrefix = "KP_DISCOVER_V1?";
       static const char* kRespPrefix = "KP_DISCOVER_V1!";
-      static const int kDiscoveryPort = 35353; // dedicated UDP port for discovery
+      static const int kDiscoveryPort = 35353;               // dedicated UDP port for discovery
+      static const char* kMulticastAddr = "239.255.255.250"; // well-known multicast for discovery
+
+      inline void set_non_blocking(asio::ip::udp::socket& sock)
+      {
+        asio::error_code ec;
+        sock.non_blocking(true, ec);
+        (void)ec; // best-effort; safe to ignore here
+      }
+
+      struct ResponseInfo
+      {
+        int port = 0;
+        std::string name;
+        std::string platform;
+      };
+
+      inline ResponseInfo parse_response(const char* buf, size_t n)
+      {
+        ResponseInfo info{};
+        if (!buf || n == 0)
+        {
+          return info;
+        }
+
+        auto parse_field = [&](const char* key) -> std::string
+        {
+          const char* pos = std::strstr(buf, key);
+          if (!pos)
+          {
+            return {};
+          }
+          pos += std::strlen(key);
+          const char* end = std::strchr(pos, ';');
+          if (!end)
+          {
+            end = buf + std::strlen(buf);
+          }
+          return std::string(pos, end);
+        };
+
+        const std::string p = parse_field("port=");
+        if (!p.empty())
+        {
+          info.port = std::atoi(p.c_str());
+        }
+        info.name = parse_field("name=");
+        info.platform = parse_field("platform=");
+        return info;
+      }
+
+      inline std::unordered_set<std::string> collect_local_ipv4s(asio::io_context& io)
+      {
+        std::unordered_set<std::string> local_ips;
+        try
+        {
+          asio::error_code ec;
+          asio::ip::tcp::resolver res(io);
+          auto hostname = asio::ip::host_name(ec);
+          if (!ec)
+          {
+            asio::ip::tcp::resolver::results_type results = res.resolve(hostname, "0", ec);
+            if (!ec)
+            {
+              for (const auto& e : results)
+              {
+                auto a = e.endpoint().address();
+                if (a.is_v4())
+                {
+                  local_ips.insert(a.to_string());
+                }
+              }
+            }
+          }
+          // Also try a trick to get primary outbound IP
+          asio::ip::udp::socket tmp(io);
+          tmp.open(asio::ip::udp::v4());
+          tmp.connect(asio::ip::udp::endpoint(asio::ip::make_address("8.8.8.8"), 53), ec);
+          if (!ec)
+          {
+            auto a = tmp.local_endpoint().address();
+            if (a.is_v4())
+            {
+              local_ips.insert(a.to_string());
+            }
+          }
+        }
+        catch (...)
+        {
+        }
+        return local_ips;
+      }
     } // namespace
 
     class Responder : public DiscoveryResponder
@@ -73,15 +164,9 @@ namespace net
           return;
         }
         // Make socket non-blocking so we can check for shutdown flag regularly
-        sock.non_blocking(true, ec);
-        if (ec)
-        {
-          // If non-blocking fails, continue anyway but the thread may hang on shutdown
-          // (best-effort; most platforms support this)
-          ec = {};
-        }
+        set_non_blocking(sock);
         // Also join a well-known multicast group to receive multicast probes
-        asio::ip::address multicast_addr = asio::ip::make_address("239.255.255.250", ec);
+        asio::ip::address multicast_addr = asio::ip::make_address(kMulticastAddr, ec);
         if (!ec)
         {
           asio::ip::multicast::join_group join(multicast_addr.to_v4());
@@ -239,11 +324,11 @@ namespace net
         }
         sock.set_option(asio::socket_base::broadcast(true), ec);
         sock.set_option(asio::socket_base::reuse_address(true), ec);
-        sock.non_blocking(true, ec);
+        set_non_blocking(sock);
 
         const std::string probe = std::string(kProbePrefix) + " " + std::to_string(service_port_);
         asio::ip::udp::endpoint bcast(asio::ip::address_v4::broadcast(), static_cast<unsigned short>(kDiscoveryPort));
-        asio::ip::udp::endpoint mcast(asio::ip::make_address_v4("239.255.255.250"),
+        asio::ip::udp::endpoint mcast(asio::ip::make_address_v4(kMulticastAddr),
                                       static_cast<unsigned short>(kDiscoveryPort));
 
         // Track last-seen timestamps per endpoint key ip:port
@@ -255,42 +340,7 @@ namespace net
         std::unordered_map<std::string, SeenEntry> seen;
 
         // Collect local IPs to suppress self-discovery
-        std::unordered_set<std::string> local_ips;
-        try
-        {
-          asio::ip::tcp::resolver res(io);
-          auto hostname = asio::ip::host_name(ec);
-          if (!ec)
-          {
-            asio::ip::tcp::resolver::results_type results = res.resolve(hostname, "0", ec);
-            if (!ec)
-            {
-              for (const auto& e : results)
-              {
-                auto a = e.endpoint().address();
-                if (a.is_v4())
-                {
-                  local_ips.insert(a.to_string());
-                }
-              }
-            }
-          }
-          // Also try a trick to get primary outbound IP
-          asio::ip::udp::socket tmp(io);
-          tmp.open(asio::ip::udp::v4());
-          tmp.connect(asio::ip::udp::endpoint(asio::ip::make_address("8.8.8.8"), 53), ec);
-          if (!ec)
-          {
-            auto a = tmp.local_endpoint().address();
-            if (a.is_v4())
-            {
-              local_ips.insert(a.to_string());
-            }
-          }
-        }
-        catch (...)
-        {
-        }
+        auto local_ips = collect_local_ipv4s(io);
 
         while (is_running())
         {
@@ -326,35 +376,12 @@ namespace net
             }
 
             // Parse response fields: port, name, platform
-            int parsed_port = 0;
-            std::string name = "";
-            std::string platform = "";
-
-            auto parse_field = [&](const char* key) -> std::string
-            {
-              const char* pos = std::strstr(buf, key);
-              if (!pos)
-              {
-                return {};
-              }
-              pos += std::strlen(key);
-              const char* end = std::strchr(pos, ';');
-              if (!end)
-              {
-                end = buf + std::strlen(buf);
-              }
-              return std::string(pos, end);
-            };
-
-            {
-              const std::string p = parse_field("port=");
-              if (!p.empty())
-              {
-                parsed_port = std::atoi(p.c_str());
-              }
-              name = parse_field("name=");
-              platform = parse_field("platform=");
-            }
+            const size_t len = (n < sizeof(buf)) ? n : sizeof(buf) - 1;
+            buf[len] = '\0';
+            ResponseInfo ri = parse_response(buf, len);
+            int parsed_port = ri.port;
+            std::string name = ri.name;
+            std::string platform = ri.platform;
 
             if (parsed_port <= 0)
             {
