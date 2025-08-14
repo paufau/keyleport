@@ -2,7 +2,7 @@
 #pragma once
 
 #include "ui_scene.h"
-#include "window.h"
+#include "ui_window.h"
 
 // Forward declarations to avoid including SDL headers in the interface
 struct SDL_Window;

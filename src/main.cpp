@@ -1,6 +1,6 @@
 #include "flows/receiver/receiver.h"
 #include "flows/sender/sender.h"
-#include "gui/framework/window.h"
+#include "gui/framework/ui_window.h"
 #include "gui/scenes/my_custom_scene.h"
 #include "keyboard/input_event.h"
 #include "keyboard/keyboard.h"
