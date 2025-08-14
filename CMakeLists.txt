@@ -60,10 +60,13 @@ if(WIN32)
   find_package(SDL3 QUIET CONFIG)
   if(NOT SDL3_FOUND AND NOT TARGET SDL3::SDL3)
     include(FetchContent)
+    # Allow overriding the SDL3 reference in CI; default to a moving 'main' if no package is found
+    set(SDL3_GIT_TAG "main" CACHE STRING "SDL3 git tag/branch/commit to fetch on Windows")
     FetchContent_Declare(
       SDL3
       GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-      GIT_TAG release-3.0.0
+      GIT_TAG ${SDL3_GIT_TAG}
+      GIT_SHALLOW TRUE
     )
     # Trim features for faster CI builds
     set(SDL_TEST OFF CACHE BOOL "" FORCE)
