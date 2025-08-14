@@ -54,29 +54,12 @@ if(APPLE OR UNIX)
   endif()
 endif()
 
-# SDL3 on Windows: prefer CMake package, fallback to FetchContent
+### SDL3 on Windows (tutorial approach): point SDL3_DIR to your SDL3 cmake config dir
 if(WIN32)
-  # Try a CMake-config package (e.g., via vcpkg)
-  find_package(SDL3 QUIET CONFIG)
-  if(NOT SDL3_FOUND AND NOT TARGET SDL3::SDL3)
-    include(FetchContent)
-    # Allow overriding the SDL3 reference in CI; default to a moving 'main' if no package is found
-    set(SDL3_GIT_TAG "main" CACHE STRING "SDL3 git tag/branch/commit to fetch on Windows")
-    FetchContent_Declare(
-      SDL3
-      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-      GIT_TAG ${SDL3_GIT_TAG}
-      GIT_SHALLOW TRUE
-    )
-    # Trim features for faster CI builds
-    set(SDL_TEST OFF CACHE BOOL "" FORCE)
-    set(SDL_SHARED ON CACHE BOOL "" FORCE)
-    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(SDL3)
-  endif()
-  if(TARGET SDL3::SDL3)
-    target_link_libraries(keyleport PRIVATE SDL3::SDL3)
-  endif()
+  find_package(SDL3)
+  target_link_libraries(keyleport PRIVATE SDL3::SDL3)
+  target_compile_definitions(keyleport PRIVATE SDL_MAIN_USE_CALLBACKS)
+  target_link_options(keyleport PRIVATE -static)
 endif()
 
 # Link Windows system libraries when building on Windows
