@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -18,18 +19,33 @@ namespace flows
     std::string ip = opt.ip;
     if (ip.empty())
     {
-      // Try to discover a server on the local network
-      auto results = net::discovery::discover(opt.port, 1200);
-      if (!results.empty())
+      // Try to discover a server on the local network (async API with blocking wait for first result)
+      auto disc = net::discovery::make_discovery();
+      std::mutex m;
+      std::condition_variable cv;
+      bool got = false;
+      disc->onDiscovered(
+          [&](const entities::ConnectionCandidate& cc)
+          {
+            std::unique_lock<std::mutex> lk(m);
+            if (!got)
+            {
+              ip = cc.ip();
+              got = true;
+            }
+            lk.unlock();
+            cv.notify_one();
+          });
+      disc->start_discovery(opt.port);
+      std::unique_lock<std::mutex> lk(m);
+      if (!cv.wait_for(lk, std::chrono::milliseconds(1200), [&] { return got; }))
       {
-        ip = results.front().ip;
-        std::cerr << "[discovery] Using discovered server: " << ip << ":" << opt.port << std::endl;
-      }
-      else
-      {
+        disc->stop_discovery();
         std::cerr << "[discovery] No server found on the local network. Provide --ip to specify target." << std::endl;
         return 2;
       }
+      disc->stop_discovery();
+      std::cerr << "[discovery] Using discovered server: " << ip << ":" << opt.port << std::endl;
     }
 
     auto s = server.createSender(ip, opt.port);

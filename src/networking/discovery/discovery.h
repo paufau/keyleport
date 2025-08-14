@@ -1,5 +1,8 @@
 #pragma once
 
+#include "entities/connection_candidate.h"
+
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,7 +29,18 @@ namespace net
     // Create a responder bound to the given service port; replies to discovery probes.
     std::unique_ptr<DiscoveryResponder> make_responder(int servicePort, const std::string& name);
 
-    // Broadcast a discovery probe on the local network and collect responses within timeoutMs.
-    std::vector<ServerInfo> discover(int servicePort, int timeoutMs);
+    // Async discovery client API
+    class Discovery
+    {
+    public:
+      using DiscoveredHandler = std::function<void(const entities::ConnectionCandidate&)>;
+      virtual ~Discovery() = default;
+      virtual void onDiscovered(DiscoveredHandler handler) = 0;
+      virtual void start_discovery(int servicePort) = 0;
+      virtual void stop_discovery() = 0;
+    };
+
+    // Factory for discovery client
+    std::unique_ptr<Discovery> make_discovery();
   } // namespace discovery
 } // namespace net
