@@ -34,4 +34,5 @@ jobs:
           name: keyleport-windows
           path: |
             build/keyleport.exe
+            build/*.dll
           retention-days: 5

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 project(keyleport CXX)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -62,11 +62,12 @@ endif()
 # Link Windows system libraries when building on Windows
 if(WIN32)
   target_link_libraries(keyleport PRIVATE user32 ws2_32 SDL3::SDL3)
-  # Copy SDL3 runtime next to the executable for distribution
+  # Copy all dependent runtime DLLs (incl. SDL3.dll) next to the executable
   add_custom_command(TARGET keyleport POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      $<TARGET_FILE:SDL3::SDL3>
-      $<TARGET_FILE_DIR:keyleport>)
+      $<TARGET_RUNTIME_DLLS:keyleport>
+      $<TARGET_FILE_DIR:keyleport>
+    COMMAND_EXPAND_LISTS)
 endif()
 
 # Require nlohmann_json via FetchContent (header-only)
@@ -141,7 +142,16 @@ endif()
 # Install and package (bundle SDL3 on Windows)
 install(TARGETS keyleport RUNTIME DESTINATION .)
 if(WIN32)
-  install(FILES $<TARGET_FILE:SDL3::SDL3> DESTINATION .)
+  # Install all runtime DLLs alongside the executable
+  install(CODE [[
+    file(GET_RUNTIME_DEPENDENCIES
+      RESOLVED_DEPENDENCIES_VAR deps
+      EXECUTABLES $<TARGET_FILE:keyleport>)
+    foreach(dll ${deps})
+      get_filename_component(name "${dll}" NAME)
+      file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}" TYPE FILE FILES "${dll}")
+    endforeach()
+  ]])
 endif()
 
 set(CPACK_GENERATOR "ZIP")
