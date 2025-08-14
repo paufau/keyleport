@@ -83,6 +83,15 @@ namespace keyboard
             running = false;
             break;
           }
+          else if (ev.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+          {
+            // Close button on the window pressed
+            if (win && ev.window.windowID == SDL_GetWindowID(win))
+            {
+              running = false;
+              break;
+            }
+          }
           if (!handler_)
           {
             continue;

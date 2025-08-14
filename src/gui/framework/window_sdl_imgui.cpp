@@ -165,7 +165,16 @@ namespace gui
       {
         if (ev.type == SDL_EVENT_QUIT)
         {
+          // Global quit request (e.g., Cmd+Q on macOS)
           running = false;
+        }
+        else if (ev.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+        {
+          // Close button pressed on a window; only act if it's our window
+          if (window_ && ev.window.windowID == SDL_GetWindowID(window_))
+          {
+            running = false;
+          }
         }
         ImGui_ImplSDL3_ProcessEvent(&ev);
       }

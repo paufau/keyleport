@@ -66,6 +66,14 @@ namespace net
         {
           return;
         }
+        // Make socket non-blocking so we can check for shutdown flag regularly
+        sock.non_blocking(true, ec);
+        if (ec)
+        {
+          // If non-blocking fails, continue anyway but the thread may hang on shutdown
+          // (best-effort; most platforms support this)
+          ec = {};
+        }
         // Also join a well-known multicast group to receive multicast probes
         asio::ip::address multicast_addr = asio::ip::make_address("239.255.255.250", ec);
         if (!ec)
@@ -81,9 +89,18 @@ namespace net
           }
           char buf[1024];
           asio::ip::udp::endpoint from;
-          size_t n = sock.receive_from(asio::buffer(buf, sizeof(buf)), from, 0, ec);
+          size_t n = 0;
+          ec = {};
+          n = sock.receive_from(asio::buffer(buf, sizeof(buf)), from, 0, ec);
           if (ec)
           {
+            if (ec == asio::error::would_block || ec == asio::error::try_again)
+            {
+              // No data ready; sleep briefly to avoid busy spin
+              std::this_thread::sleep_for(std::chrono::milliseconds(10));
+              continue;
+            }
+            // Other errors: just skip this iteration
             continue;
           }
           if (n == 0)
