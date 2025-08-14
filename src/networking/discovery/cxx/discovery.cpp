@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -63,6 +64,13 @@ namespace net
         if (ec)
         {
           return;
+        }
+        // Also join a well-known multicast group to receive multicast probes
+        asio::ip::address multicast_addr = asio::ip::make_address("239.255.255.250", ec);
+        if (!ec)
+        {
+          asio::ip::multicast::join_group join(multicast_addr.to_v4());
+          sock.set_option(join, ec);
         }
         for (;;)
         {
@@ -167,17 +175,59 @@ namespace net
 
         const std::string probe = std::string(kProbePrefix) + " " + std::to_string(service_port_);
         asio::ip::udp::endpoint bcast(asio::ip::address_v4::broadcast(), static_cast<unsigned short>(kDiscoveryPort));
+        asio::ip::udp::endpoint mcast(asio::ip::make_address_v4("239.255.255.250"),
+                                      static_cast<unsigned short>(kDiscoveryPort));
 
         // to de-duplicate endpoints (ip:port)
         std::unordered_set<std::string> seen;
+
+        // Collect local IPs to suppress self-discovery
+        std::unordered_set<std::string> local_ips;
+        try
+        {
+          asio::ip::tcp::resolver res(io);
+          auto hostname = asio::ip::host_name(ec);
+          if (!ec)
+          {
+            asio::ip::tcp::resolver::results_type results = res.resolve(hostname, "0", ec);
+            if (!ec)
+            {
+              for (const auto& e : results)
+              {
+                auto a = e.endpoint().address();
+                if (a.is_v4())
+                {
+                  local_ips.insert(a.to_string());
+                }
+              }
+            }
+          }
+          // Also try a trick to get primary outbound IP
+          asio::ip::udp::socket tmp(io);
+          tmp.open(asio::ip::udp::v4());
+          tmp.connect(asio::ip::udp::endpoint(asio::ip::make_address("8.8.8.8"), 53), ec);
+          if (!ec)
+          {
+            auto a = tmp.local_endpoint().address();
+            if (a.is_v4())
+            {
+              local_ips.insert(a.to_string());
+            }
+          }
+        }
+        catch (...)
+        {
+        }
 
         while (is_running())
         {
           // periodically re-broadcast
           sock.send_to(asio::buffer(probe.data(), probe.size()), bcast, 0, ec);
+          // also send via multicast for networks that filter broadcast
+          sock.send_to(asio::buffer(probe.data(), probe.size()), mcast, 0, ec);
 
           const auto start = std::chrono::steady_clock::now();
-          while (is_running() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(300))
+          while (is_running() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500))
           {
             char buf[512];
             asio::ip::udp::endpoint from;
@@ -240,6 +290,11 @@ namespace net
             }
 
             const std::string ip = from.address().to_string();
+            // Skip self
+            if (local_ips.find(ip) != local_ips.end())
+            {
+              continue;
+            }
             const std::string key = ip + ":" + std::to_string(parsed_port);
             if (!seen.insert(key).second)
             {

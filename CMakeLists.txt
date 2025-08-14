@@ -54,6 +54,28 @@ if(APPLE OR UNIX)
   endif()
 endif()
 
+# SDL3 on Windows: prefer CMake package, fallback to FetchContent
+if(WIN32)
+  # Try a CMake-config package (e.g., via vcpkg)
+  find_package(SDL3 QUIET CONFIG)
+  if(NOT SDL3_FOUND AND NOT TARGET SDL3::SDL3)
+    include(FetchContent)
+    FetchContent_Declare(
+      SDL3
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+      GIT_TAG release-3.0.0
+    )
+    # Trim features for faster CI builds
+    set(SDL_TEST OFF CACHE BOOL "" FORCE)
+    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(SDL3)
+  endif()
+  if(TARGET SDL3::SDL3)
+    target_link_libraries(keyleport PRIVATE SDL3::SDL3)
+  endif()
+endif()
+
 # Link Windows system libraries when building on Windows
 if(WIN32)
   target_link_libraries(keyleport PRIVATE user32 ws2_32)
@@ -99,13 +121,17 @@ if(DEFINED imgui_SOURCE_DIR)
   endif()
 
   # Optional SDL3 backend (platform + renderer using SDL_Renderer)
-  if(TARGET keyleport AND DEFINED SDL3_FOUND AND SDL3_FOUND)
+  if(TARGET keyleport AND ((DEFINED SDL3_FOUND AND SDL3_FOUND) OR TARGET SDL3::SDL3))
     add_library(imgui_backend_sdl3 STATIC
       ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
       ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp
     )
-    target_link_libraries(imgui_backend_sdl3 PUBLIC imgui ${SDL3_LINK_LIBRARIES})
-    target_include_directories(imgui_backend_sdl3 PUBLIC ${SDL3_INCLUDE_DIRS})
+    if(TARGET SDL3::SDL3)
+      target_link_libraries(imgui_backend_sdl3 PUBLIC imgui SDL3::SDL3)
+    else()
+      target_link_libraries(imgui_backend_sdl3 PUBLIC imgui ${SDL3_LINK_LIBRARIES})
+      target_include_directories(imgui_backend_sdl3 PUBLIC ${SDL3_INCLUDE_DIRS})
+    endif()
   # ImGui's SDL3 backend still uses old names in some places; enable SDL old names for compatibility
   target_compile_definitions(imgui_backend_sdl3 PRIVATE SDL_ENABLE_OLD_NAMES)
     # Consumers can just link this one target to get ImGui + SDL3 backend
