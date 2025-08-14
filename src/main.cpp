@@ -1,7 +1,7 @@
 #include "flows/receiver/receiver.h"
 #include "flows/sender/sender.h"
 #include "gui/framework/ui_window.h"
-#include "gui/scenes/my_custom_scene.h"
+#include "gui/scenes/home/home_scene.h"
 #include "keyboard/input_event.h"
 #include "keyboard/keyboard.h"
 #include "networking/discovery/discovery.h"
@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
 
   // Initiate a UIWindow & UIScene and run UI loop
   gui::framework::init_window();
-  MyCustomScene scene;
+  HomeScene scene;
   gui::framework::set_window_scene(&scene);
   while (gui::framework::window_frame())
   {
