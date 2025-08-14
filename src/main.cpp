@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     // No-op; frame is driven by window
   }
 
-  disc->stop_discovery();
+  disc.stop_discovery();
   gui::framework::deinit_window();
 
   // auto server = net::make_server();

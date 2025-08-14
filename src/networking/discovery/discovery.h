@@ -33,8 +33,8 @@ namespace net
     class Discovery
     {
     public:
-  // Process-wide singleton accessor.
-  static Discovery& instance();
+      // Process-wide singleton accessor.
+      static Discovery& instance();
 
       using DiscoveredHandler = std::function<void(const entities::ConnectionCandidate&)>;
       using LostHandler = std::function<void(const entities::ConnectionCandidate&)>;
