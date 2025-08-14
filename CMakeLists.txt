@@ -25,6 +25,11 @@ list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/server/(macos|windows
 # Remove platform-specific discovery folders; use cxx implementation
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/discovery/(macos|windows)/.*\\.cpp$")
 
+# Windows: SDL3 is required; provide SDL3_DIR or CMAKE_PREFIX_PATH
+if(WIN32)
+  find_package(SDL3 CONFIG REQUIRED)
+endif()
+
 add_executable(keyleport ${KEYLEPORT_SOURCES})
 
 target_include_directories(keyleport PRIVATE src)
@@ -54,17 +59,9 @@ if(APPLE OR UNIX)
   endif()
 endif()
 
-### SDL3 on Windows (tutorial approach): point SDL3_DIR to your SDL3 cmake config dir
-if(WIN32)
-  find_package(SDL3)
-  target_link_libraries(keyleport PRIVATE SDL3::SDL3)
-  target_compile_definitions(keyleport PRIVATE SDL_MAIN_USE_CALLBACKS)
-  target_link_options(keyleport PRIVATE -static)
-endif()
-
 # Link Windows system libraries when building on Windows
 if(WIN32)
-  target_link_libraries(keyleport PRIVATE user32 ws2_32)
+  target_link_libraries(keyleport PRIVATE user32 ws2_32 SDL3::SDL3)
 endif()
 
 # Require nlohmann_json via FetchContent (header-only)
