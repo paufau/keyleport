@@ -38,18 +38,18 @@ int main(int argc, char* argv[])
   }
 
   // Create and start the discovery process
-  auto disc = net::discovery::make_discovery();
-  disc->start_discovery(opt.port);
+  auto& disc = net::discovery::Discovery::instance();
+  disc.start_discovery(opt.port);
 
   // When discovered add to available connection state
-  disc->onDiscovered(
+  disc.onDiscovered(
       [&](const entities::ConnectionCandidate& cc)
       {
         std::cerr << "[discovery] Discovered server: " << cc.ip() << ":" << cc.port() << std::endl;
         store::connection_state().available_devices.get().push_back(cc);
       });
 
-  disc->onLost(
+  disc.onLost(
       [&](const entities::ConnectionCandidate& cc)
       {
         std::cerr << "[discovery] Lost server: " << cc.ip() << ":" << cc.port() << std::endl;
@@ -57,6 +57,14 @@ int main(int argc, char* argv[])
         devices.erase(std::remove_if(devices.begin(), devices.end(),
                                      [&](const entities::ConnectionCandidate& d) { return d.ip() == cc.ip(); }),
                       devices.end());
+      });
+
+  disc.onMessage(
+      [&](const entities::ConnectionCandidate& cc, const std::string& msg)
+      {
+        std::cerr << "[discovery] Message from " << cc.ip() << ":" << cc.port() << " - " << msg << std::endl;
+        // Handle incoming messages from discovered servers
+        // For now, just print them
       });
 
   // Initiate a UIWindow & UIScene and run UI loop

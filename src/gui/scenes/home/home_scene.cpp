@@ -5,6 +5,7 @@
 #include "store.h"
 
 #include <imgui.h>
+#include <networking/discovery/discovery.h>
 
 void HomeScene::render()
 {
@@ -53,6 +54,7 @@ void HomeScene::render()
       {
         // Persist selected device and set sender scene
         store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(d));
+        net::discovery::Discovery::instance().sendMessage(d, "command_start_receive");
         gui::framework::set_window_scene<SenderScene>();
       }
       ImGui::EndDisabled();
