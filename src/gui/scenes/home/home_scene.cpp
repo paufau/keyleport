@@ -1,11 +1,52 @@
 #include "home_scene.h"
 
 #include "gui/framework/ui_window.h"
+#include "gui/scenes/receiver/receiver_scene.h"
 #include "gui/scenes/sender/sender_scene.h"
 #include "store.h"
 
+#include <algorithm>
 #include <imgui.h>
+#include <iostream>
 #include <networking/discovery/discovery.h>
+void HomeScene::didMount()
+{
+  // Create and start the discovery process
+  auto& disc = net::discovery::Discovery::instance();
+  disc.start_discovery(store::connection_state().port.get());
+
+  // When discovered add to available connection state
+  disc.onDiscovered(
+      [&](const entities::ConnectionCandidate& cc)
+      {
+        std::cerr << "[discovery] Discovered server: " << cc.ip() << ":" << cc.port() << std::endl;
+        store::connection_state().available_devices.get().push_back(cc);
+      });
+
+  disc.onLost(
+      [&](const entities::ConnectionCandidate& cc)
+      {
+        std::cerr << "[discovery] Lost server: " << cc.ip() << ":" << cc.port() << std::endl;
+        auto& devices = store::connection_state().available_devices.get();
+        devices.erase(std::remove_if(devices.begin(), devices.end(),
+                                     [&](const entities::ConnectionCandidate& d) { return d.ip() == cc.ip(); }),
+                      devices.end());
+      });
+
+  disc.onMessage(
+      [&](const entities::ConnectionCandidate& cc, const std::string& msg)
+      {
+        std::cerr << "[discovery] Message from " << cc.ip() << ":" << cc.port() << " - " << msg << std::endl;
+
+        if (msg == "become_receiver")
+        {
+          store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(cc));
+          gui::framework::set_window_scene<ReceiverScene>();
+          disc.stop_discovery();
+          net::discovery::Discovery::destroy_instance();
+        }
+      });
+}
 
 void HomeScene::render()
 {

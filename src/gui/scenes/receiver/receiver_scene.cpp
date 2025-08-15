@@ -4,6 +4,12 @@
 #include "store.h"
 
 #include <imgui.h>
+#include <flows/receiver/receiver.h>
+
+void ReceiverScene::didMount()
+{
+  flows::run_receiver();
+}
 
 void ReceiverScene::render()
 {

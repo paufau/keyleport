@@ -6,7 +6,7 @@
 class ReceiverScene : public gui::framework::UIScene
 {
 public:
-  void didMount() override {}
+  void didMount() override;
   void willUnmount() override {}
 
 private:

@@ -4,6 +4,9 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+// Forward declare SDL event to avoid pulling SDL headers in users of this header
+union SDL_Event;
+
 namespace keyboard
 {
 
@@ -28,6 +31,10 @@ namespace keyboard
     uint16_t code; // keycode
     int32_t dx;    // relative movement x (for mouse move/scroll)
     int32_t dy;    // relative movement y (for mouse move/scroll)
+
+    // Convert an SDL_Event to our InputEvent representation.
+    // For unmapped events, returns a zero-initialized InputEvent.
+    static InputEvent fromSDL(const SDL_Event& e);
   };
 
   // JSON converter for a single InputEvent

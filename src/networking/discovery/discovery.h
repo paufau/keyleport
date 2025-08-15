@@ -35,6 +35,11 @@ namespace net
     public:
       // Process-wide singleton accessor.
       static Discovery& instance();
+      // Destroy the singleton instance (best-effort). Stops discovery and frees resources.
+      // Note: Inbound receiver threads are long-lived; they do not currently support
+      // cooperative shutdown and may continue running until process exit.
+      // This method ensures senders are disconnected and main discovery thread stops.
+      static void destroy_instance();
 
       using DiscoveredHandler = std::function<void(const entities::ConnectionCandidate&)>;
       using LostHandler = std::function<void(const entities::ConnectionCandidate&)>;

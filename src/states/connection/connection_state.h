@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../../entities/connection_candidate.h"
 #include "../atom.h"
 
@@ -11,6 +13,7 @@ namespace states
   public:
     Atom<std::shared_ptr<entities::ConnectionCandidate>> connected_device;
     Atom<std::vector<entities::ConnectionCandidate>> available_devices;
+    Atom<int> port;
 
     // Add your state management code here
     bool is_connected() const { return is_connected_; }
@@ -20,6 +23,7 @@ namespace states
     {
       connected_device.set(nullptr);
       available_devices.set(std::vector<entities::ConnectionCandidate>{});
+      port.set(8080);
     }
 
   private:

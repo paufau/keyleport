@@ -547,12 +547,36 @@ namespace net
       std::unordered_map<std::string, std::unique_ptr<net::Sender>> senders_;
     };
 
+    // Internal accessor to the singleton pointer
+    static Discovery*& discovery_singleton_ptr()
+    {
+      static Discovery* inst = nullptr;
+      return inst;
+    }
+
     // Singleton accessor implementation
-    // Intentionally never destroyed to avoid teardown races with background threads.
     Discovery& Discovery::instance()
     {
-      static Discovery* inst = make_discovery().release();
+      Discovery*& inst = discovery_singleton_ptr();
+      if (!inst)
+      {
+        inst = make_discovery().release();
+      }
       return *inst;
+    }
+
+    void Discovery::destroy_instance()
+    {
+      Discovery*& inst = discovery_singleton_ptr();
+      if (!inst)
+      {
+        return;
+      }
+      // Best-effort cleanup: stop discovery and disconnect senders.
+      // Do NOT delete the instance because receiver threads are detached and have
+      // no cooperative shutdown; deleting would risk use-after-free.
+      inst->stop_discovery();
+      inst = nullptr;
     }
 
     std::unique_ptr<Discovery> make_discovery()
