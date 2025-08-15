@@ -279,7 +279,9 @@ namespace net
                   cb(cc, msg);
                 }
               });
+          // Launch receiver in a detached thread – it is designed to live for the process lifetime.
           recv_thr_ = std::thread([this]() { receiver_->run(); });
+          recv_thr_.detach();
         }
         thr_ = std::thread([this] { this->loop(); });
       }
@@ -545,10 +547,11 @@ namespace net
     };
 
     // Singleton accessor implementation
+    // Intentionally never destroyed to avoid teardown races with background threads.
     Discovery& Discovery::instance()
     {
-      static std::unique_ptr<Discovery> inst = make_discovery();
-      return *inst.get();
+      static Discovery* inst = make_discovery().release();
+      return *inst;
     }
 
     std::unique_ptr<Discovery> make_discovery()

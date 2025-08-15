@@ -1,5 +1,7 @@
 #include "window_sdl_imgui.h"
 
+#include "ui_input_manager.h"
+
 #include <stdexcept>
 #include <string>
 // extras
@@ -219,6 +221,23 @@ namespace gui
           {
             running = false;
           }
+        }
+
+        // Maintain global pressed-keys state
+        switch (ev.type)
+        {
+        case SDL_EVENT_KEY_DOWN:
+          gui::framework::UIInputManager::instance().press(static_cast<SDL_Scancode>(ev.key.scancode));
+          break;
+        case SDL_EVENT_KEY_UP:
+          gui::framework::UIInputManager::instance().release(static_cast<SDL_Scancode>(ev.key.scancode));
+          break;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+          // Clear pressed keys when focus is lost to avoid stuck keys
+          gui::framework::UIInputManager::instance().clear();
+          break;
+        default:
+          break;
         }
 
         UIInputEvent input_event;

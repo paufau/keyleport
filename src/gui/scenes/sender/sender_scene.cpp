@@ -1,18 +1,40 @@
 #include "sender_scene.h"
 
+#include "gui/framework/ui_input_manager.h"
 #include "gui/framework/ui_window.h"
 #include "store.h"
 
+#include <SDL3/SDL.h>
 #include <imgui.h>
 
 void SenderScene::didMount()
 {
   gui::framework::get_window().apply_mouse_confinement();
+  is_mouse_contained_ = true;
 }
 
 void SenderScene::willUnmount()
 {
   gui::framework::get_window().release_mouse_confinement();
+  is_mouse_contained_ = false;
+}
+
+void SenderScene::handleInput(const gui::framework::UIInputEvent& event)
+{
+  // if pressed option + control + esc, then release mouse confinement and allow for events to propagate
+  if (event.raw_event.type == SDL_EVENT_KEY_DOWN &&
+      gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_LALT) &&
+      gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_LCTRL) &&
+      gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_ESCAPE))
+  {
+    gui::framework::get_window().release_mouse_confinement();
+    is_mouse_contained_ = false;
+  }
+
+  if (is_mouse_contained_)
+  {
+    event.stopPropagation();
+  }
 }
 
 void SenderScene::render()
