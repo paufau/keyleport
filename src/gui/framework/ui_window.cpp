@@ -60,5 +60,17 @@ namespace gui
       return inst->frame();
     }
 
+    UIWindow& get_window()
+    {
+      auto& inst = singleton();
+      if (!inst)
+      {
+        inst.reset(new SdlImGuiWindow());
+      }
+      // Safe to call repeatedly; implementation guards re-init.
+      inst->init();
+      return *inst;
+    }
+
   } // namespace framework
 } // namespace gui

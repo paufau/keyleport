@@ -22,6 +22,14 @@ namespace gui
       // Set or replace the key scene. Implementations should call willUnmount on the
       // previous scene (if any) and didMount on the new one.
       virtual void setScene(UIScene* scene) = 0;
+
+      // Constrain the mouse to this window (implementation-defined behavior)
+      // Used by scenes that need locked cursor or capture, e.g., for drag/resize
+      // or relative mouse input.
+      virtual void apply_mouse_confinement() = 0;
+
+      // Release any mouse confinement applied previously.
+      virtual void release_mouse_confinement() = 0;
     };
 
     // Initializes the concrete window (SDL + ImGui) instance.
@@ -45,6 +53,9 @@ namespace gui
       }
       set_window_scene(static_cast<UIScene*>(holder.get()));
     }
+
+    // Get a reference to the window singleton. Initializes the window if needed.
+    UIWindow& get_window();
 
     // Run one UI frame; returns false if the window requested quit.
     bool window_frame();

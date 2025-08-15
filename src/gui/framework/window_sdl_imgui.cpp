@@ -11,6 +11,7 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_sdlrenderer3.h>
 #include <imgui.h>
+#include <iostream>
 
 namespace gui
 {
@@ -149,6 +150,49 @@ namespace gui
       {
         scene_->didMount();
       }
+    }
+
+    void update_mouse_confinement_rect(SDL_Window* win, int w, int h)
+    {
+      if (!win || w <= 0 || h <= 0)
+      {
+        return;
+      }
+      SDL_Rect rect{0, 0, w, h};
+      if (!SDL_SetWindowMouseRect(win, &rect))
+      {
+        std::cerr << "SDL_SetWindowMouseRect failed: " << SDL_GetError() << std::endl;
+      }
+    }
+
+    void SdlImGuiWindow::apply_mouse_confinement()
+    {
+      if (!window_)
+      {
+        return;
+      }
+      if (!SDL_SetWindowMouseGrab(window_, true))
+      {
+        std::cerr << "SDL_SetWindowMouseGrab failed: " << SDL_GetError() << std::endl;
+      }
+      int ww = 0, wh = 0;
+      SDL_GetWindowSize(window_, &ww, &wh);
+      update_mouse_confinement_rect(window_, ww, wh);
+      if (!SDL_SetWindowRelativeMouseMode(window_, true))
+      {
+        std::cerr << "SDL_SetWindowRelativeMouseMode failed: " << SDL_GetError() << std::endl;
+      }
+    }
+
+    void SdlImGuiWindow::release_mouse_confinement()
+    {
+      if (!window_)
+      {
+        return;
+      }
+      SDL_SetWindowRelativeMouseMode(window_, false);
+      SDL_SetWindowMouseGrab(window_, false);
+      SDL_SetWindowMouseRect(window_, nullptr);
     }
 
     bool SdlImGuiWindow::frame()

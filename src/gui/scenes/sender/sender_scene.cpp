@@ -1,8 +1,19 @@
 #include "sender_scene.h"
 
+#include "gui/framework/ui_window.h"
 #include "store.h"
 
 #include <imgui.h>
+
+void SenderScene::didMount()
+{
+  gui::framework::get_window().apply_mouse_confinement();
+}
+
+void SenderScene::willUnmount()
+{
+  gui::framework::get_window().release_mouse_confinement();
+}
 
 void SenderScene::render()
 {

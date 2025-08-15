@@ -24,6 +24,9 @@ namespace gui
 
       void setScene(UIScene* scene) override;
 
+      void apply_mouse_confinement() override;
+      void release_mouse_confinement() override;
+
       // Pump one frame: process events, begin/end ImGui frame, render scene
       // Returns false when the application should quit.
       bool frame();
