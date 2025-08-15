@@ -15,7 +15,7 @@ namespace flows
 
     auto r = server.createReceiver(opt.port);
     r->onReceive(
-        [emitter_ptr](const std::string& payload)
+        [emitter_ptr](const std::string& payload, const std::string& /*remote*/)
         {
           if (payload.empty())
           {

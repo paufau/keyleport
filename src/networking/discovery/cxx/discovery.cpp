@@ -265,7 +265,7 @@ namespace net
         {
           receiver_ = server_->createReceiver(service_port_);
           receiver_->onReceive(
-              [this](const std::string& msg)
+              [this](const std::string& msg, const std::string& remote)
               {
                 MessageHandler cb;
                 {
@@ -274,8 +274,9 @@ namespace net
                 }
                 if (cb)
                 {
-                  // NOTE: Receiver API does not provide remote endpoint; emit with unknown candidate
-                  entities::ConnectionCandidate cc(false, "", "", std::to_string(service_port_));
+                  // Populate candidate with remote ip if available
+                  std::string ip = remote; // may be empty
+                  entities::ConnectionCandidate cc(false, "", ip, std::to_string(service_port_));
                   cb(cc, msg);
                 }
               });

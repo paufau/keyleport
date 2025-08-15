@@ -54,7 +54,7 @@ namespace net
         }
         if (n > 0 && handler_)
         {
-          handler_(std::string(buf, buf + n));
+          handler_(std::string(buf, buf + n), from.address().to_string());
         }
       }
       return 0;
@@ -79,6 +79,15 @@ namespace net
 
     void tcp_session(asio::ip::tcp::socket s)
     {
+      std::string remote_ip;
+      try
+      {
+        remote_ip = s.remote_endpoint().address().to_string();
+      }
+      catch (...)
+      {
+        remote_ip.clear();
+      }
       std::vector<char> buffer;
       buffer.reserve(4096);
       asio::error_code ec;
@@ -109,7 +118,7 @@ namespace net
           buffer.erase(buffer.begin(), buffer.begin() + 4 + nlen);
           if (handler_)
           {
-            handler_(msg);
+            handler_(msg, remote_ip);
           }
         }
       }

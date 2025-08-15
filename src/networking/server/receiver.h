@@ -10,7 +10,8 @@ namespace net
   {
   public:
     virtual ~Receiver() = default;
-    using ReceiveHandler = std::function<void(const std::string&)>;
+    // Handler receives payload and remote address (ip or ip:port when available)
+    using ReceiveHandler = std::function<void(const std::string&, const std::string&)>;
     virtual void onReceive(ReceiveHandler handler) = 0;
     virtual int run() = 0;
   };
