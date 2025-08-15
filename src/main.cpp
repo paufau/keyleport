@@ -2,6 +2,7 @@
 #include "flows/sender/sender.h"
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/home/home_scene.h"
+#include "gui/scenes/receiver/receiver_scene.h"
 #include "keyboard/input_event.h"
 #include "keyboard/keyboard.h"
 #include "networking/discovery/discovery.h"
@@ -37,6 +38,11 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+  // Initiate a UIWindow & UIScene and run UI loop
+  gui::framework::init_window();
+  HomeScene scene;
+  gui::framework::set_window_scene(&scene);
+
   // Create and start the discovery process
   auto& disc = net::discovery::Discovery::instance();
   disc.start_discovery(opt.port);
@@ -63,14 +69,14 @@ int main(int argc, char* argv[])
       [&](const entities::ConnectionCandidate& cc, const std::string& msg)
       {
         std::cerr << "[discovery] Message from " << cc.ip() << ":" << cc.port() << " - " << msg << std::endl;
-        // Handle incoming messages from discovered servers
-        // For now, just print them
+
+        if (msg == "become_receiver")
+        {
+          store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(cc));
+          gui::framework::set_window_scene<ReceiverScene>();
+        }
       });
 
-  // Initiate a UIWindow & UIScene and run UI loop
-  gui::framework::init_window();
-  HomeScene scene;
-  gui::framework::set_window_scene(&scene);
   while (gui::framework::window_frame())
   {
     // No-op; frame is driven by window

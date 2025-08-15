@@ -54,7 +54,7 @@ void HomeScene::render()
       {
         // Persist selected device and set sender scene
         store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(d));
-        net::discovery::Discovery::instance().sendMessage(d, "command_start_receive");
+        net::discovery::Discovery::instance().sendMessage(d, "become_receiver");
         gui::framework::set_window_scene<SenderScene>();
       }
       ImGui::EndDisabled();
