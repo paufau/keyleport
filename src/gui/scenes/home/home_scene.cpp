@@ -38,13 +38,16 @@ void HomeScene::didMount()
       {
         std::cerr << "[discovery] Message from " << cc.ip() << ":" << cc.port() << " - " << msg << std::endl;
 
-        // if (msg == "become_receiver")
-        // {
-        //   store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(cc));
-        //   gui::framework::set_window_scene<ReceiverScene>();
-        //   disc.stop_discovery();
-        //   net::discovery::Discovery::destroy_instance();
-        // }
+        if (msg == "become_receiver")
+        {
+          // Persist the connected device
+          store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(cc));
+          // Stop discovery and free the receiver before starting our receiver scene to avoid port conflicts
+          disc.stop_discovery();
+          net::discovery::Discovery::destroy_instance();
+          // Now switch to receiver UI which starts its own receiver
+          gui::framework::set_window_scene<ReceiverScene>();
+        }
       });
 }
 

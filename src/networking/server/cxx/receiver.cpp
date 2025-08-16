@@ -23,14 +23,50 @@ namespace net
   class AsioReceiver : public Receiver
   {
   public:
-    explicit AsioReceiver(int port)
-        : port_(port), io_(),
-          acceptor_(io_, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), static_cast<unsigned short>(port))),
-          udp_sock_(io_, asio::ip::udp::endpoint(asio::ip::udp::v4(), static_cast<unsigned short>(port)))
+    explicit AsioReceiver(int port) : port_(port), io_(), acceptor_(io_), udp_sock_(io_)
     {
+      asio::error_code ec;
+      // TCP acceptor setup with reuse_address
+      acceptor_.open(asio::ip::tcp::v4(), ec);
+      if (ec)
+      {
+        throw std::system_error(ec);
+      }
+      acceptor_.set_option(asio::socket_base::reuse_address(true), ec);
+      // Some platforms also benefit from enabling v6-only false; but we stick to v4 for now.
+      acceptor_.bind(asio::ip::tcp::endpoint(asio::ip::tcp::v4(), static_cast<unsigned short>(port_)), ec);
+      if (ec)
+      {
+        throw std::system_error(ec);
+      }
+      acceptor_.listen(asio::socket_base::max_listen_connections, ec);
+      if (ec)
+      {
+        throw std::system_error(ec);
+      }
+
+      // UDP socket setup with reuse_address
+      udp_sock_.open(asio::ip::udp::v4(), ec);
+      if (ec)
+      {
+        throw std::system_error(ec);
+      }
+      udp_sock_.set_option(asio::socket_base::reuse_address(true), ec);
+      udp_sock_.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), static_cast<unsigned short>(port_)), ec);
+      if (ec)
+      {
+        throw std::system_error(ec);
+      }
     }
 
     void onReceive(ReceiveHandler handler) override { handler_ = std::move(handler); }
+    void stop() override
+    {
+      asio::error_code ec;
+      acceptor_.close(ec);
+      udp_sock_.close(ec);
+      io_.stop();
+    }
     int run() override
     {
       // Start UDP discovery responder for clients with no configured IP
@@ -50,6 +86,10 @@ namespace net
         size_t n = udp_sock_.receive_from(asio::buffer(buf, sizeof(buf)), from, 0, ec);
         if (ec)
         {
+          if (ec == asio::error::operation_aborted)
+          {
+            break; // socket closed
+          }
           continue;
         }
         if (n > 0 && handler_)
@@ -70,6 +110,10 @@ namespace net
         acceptor_.accept(sock, ec);
         if (ec)
         {
+          if (ec == asio::error::operation_aborted)
+          {
+            break; // acceptor closed
+          }
           continue;
         }
         std::thread([this](asio::ip::tcp::socket s) mutable { this->tcp_session(std::move(s)); }, std::move(sock))

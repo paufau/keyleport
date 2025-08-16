@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -263,26 +264,38 @@ namespace net
         }
         if (!receiver_)
         {
-          receiver_ = server_->createReceiver(service_port_);
-          receiver_->onReceive(
-              [this](const std::string& msg, const std::string& remote)
-              {
-                MessageHandler cb;
+          try
+          {
+            receiver_ = server_->createReceiver(service_port_);
+          }
+          catch (const std::system_error& e)
+          {
+            std::cerr << "[discovery] Failed to bind local receiver on port " << service_port_ << ": " << e.what()
+                      << ". Continuing without onMessage listener." << std::endl;
+            receiver_.reset();
+          }
+          if (receiver_)
+          {
+            receiver_->onReceive(
+                [this](const std::string& msg, const std::string& remote)
                 {
-                  std::lock_guard<std::mutex> lk(m_);
-                  cb = msg_handler_;
-                }
-                if (cb)
-                {
-                  // Populate candidate with remote ip if available
-                  std::string ip = remote; // may be empty
-                  entities::ConnectionCandidate cc(false, "", ip, std::to_string(service_port_));
-                  cb(cc, msg);
-                }
-              });
-          // Launch receiver in a detached thread – it is designed to live for the process lifetime.
-          recv_thr_ = std::thread([this]() { receiver_->run(); });
-          recv_thr_.detach();
+                  MessageHandler cb;
+                  {
+                    std::lock_guard<std::mutex> lk(m_);
+                    cb = msg_handler_;
+                  }
+                  if (cb)
+                  {
+                    // Populate candidate with remote ip if available
+                    std::string ip = remote; // may be empty
+                    entities::ConnectionCandidate cc(false, "", ip, std::to_string(service_port_));
+                    cb(cc, msg);
+                  }
+                });
+            // Launch receiver in a detached thread – it is designed to live for the process lifetime.
+            recv_thr_ = std::thread([this]() { receiver_->run(); });
+            recv_thr_.detach();
+          }
         }
         thr_ = std::thread([this] { this->loop(); });
       }
@@ -297,8 +310,12 @@ namespace net
         {
           thr_.join();
         }
-        // We do not stop the receiver thread here as the Receiver API is blocking.
-        // It will live for the process lifetime. Senders are cleaned up below.
+        // Stop receiver (closes sockets and unblocks loops) to free the service port.
+        if (receiver_)
+        {
+          receiver_->stop();
+        }
+        // Senders are cleaned up below.
         // Disconnect and clear all senders
         std::unordered_map<std::string, std::unique_ptr<net::Sender>> to_close;
         {
@@ -312,6 +329,8 @@ namespace net
             kv.second->disconnect();
           }
         }
+        // Release receiver after stopping it so the port can be rebound later
+        receiver_.reset();
       }
 
     private:

@@ -3,12 +3,13 @@
 #include "gui/framework/ui_window.h"
 #include "store.h"
 
-#include <imgui.h>
 #include <flows/receiver/receiver.h>
+#include <imgui.h>
+#include <thread>
 
 void ReceiverScene::didMount()
 {
-  flows::run_receiver();
+  std::thread([]() { flows::run_receiver(); }).detach();
 }
 
 void ReceiverScene::render()
