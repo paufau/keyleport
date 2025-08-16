@@ -6,6 +6,7 @@
 #include "gui/scenes/sender/sender_scene.h"
 #include "networking/p2p/DiscoveryServer.h"
 #include "networking/p2p/SessionServer.h"
+#include "networking/p2p/service.h"
 #include "store.h"
 
 #include <algorithm>
@@ -43,6 +44,8 @@ void HomeScene::didMount()
       [this](std::shared_ptr<net::p2p::Session> s)
       {
         std::cerr << "[p2p] Incoming TCP session from " << s->socket().remote_endpoint() << std::endl;
+        // Register server session globally for receiver scene to consume
+        net::p2p::Service::instance().set_server_session(s);
         s->start_server(
             [this]
             {
@@ -139,29 +142,30 @@ void HomeScene::render()
         {
           auto sock = std::make_shared<asio::ip::tcp::socket>(*io_);
           asio::ip::tcp::endpoint ep(asio::ip::make_address(d.ip()), static_cast<unsigned short>(std::stoi(d.port())));
-          sock->async_connect(ep,
-                              [this, sock](std::error_code ec)
-                              {
-                                if (ec)
-                                {
-                                  std::cerr << "[p2p] Connect failed: " << ec.message() << std::endl;
-                                  return;
-                                }
-                                auto session = std::make_shared<net::p2p::Session>(std::move(*sock));
-                                session->start_client(
-                                    [this, session]
-                                    {
-                                      // Client side is the sender; nothing else needed here
-                                    });
-                                // keep reference while active using key
-                                const std::string key = session->socket().remote_endpoint().address().to_string() +
-                                                        ":" +
-                                                        std::to_string(session->socket().remote_endpoint().port());
-                                sessions_[key] = session;
-                              });
+          sock->async_connect(
+              ep,
+              [this, sock](std::error_code ec)
+              {
+                if (ec)
+                {
+                  std::cerr << "[p2p] Connect failed: " << ec.message() << std::endl;
+                  return;
+                }
+                auto session = std::make_shared<net::p2p::Session>(std::move(*sock));
+                // Register client session globally for sender scene to consume
+                net::p2p::Service::instance().set_client_session(session);
+                session->start_client(
+                    [session]
+                    {
+                      std::cerr << "[p2p] Client handshake done; switching to SenderScene" << std::endl;
+                      gui::framework::post_to_ui([] { gui::framework::set_window_scene<SenderScene>(); });
+                    });
+                // keep reference while active using key
+                const std::string key = session->socket().remote_endpoint().address().to_string() + ":" +
+                                        std::to_string(session->socket().remote_endpoint().port());
+                sessions_[key] = session;
+              });
         }
-        // Navigate to sender scene
-        gui::framework::set_window_scene<SenderScene>();
       }
       ImGui::EndDisabled();
       ++i;
@@ -175,7 +179,14 @@ void HomeScene::render()
 
 void HomeScene::willUnmount()
 {
-  // Stop IO and cleanup
+  // Keep P2P IO + sessions alive across scene transitions.
+  // They are used by Sender/Receiver scenes via net::p2p::Service and own background io thread.
+  // Cleanup is deferred to app shutdown.
+}
+
+HomeScene::~HomeScene()
+{
+  // Final cleanup on application shutdown
   if (io_)
   {
     io_->stop();
@@ -194,5 +205,6 @@ void HomeScene::willUnmount()
   sessions_.clear();
   discovery_.reset();
   session_server_.reset();
+  net::p2p::Service::instance().stop();
   io_.reset();
 }

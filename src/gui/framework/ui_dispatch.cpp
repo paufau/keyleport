@@ -34,7 +34,9 @@ namespace gui
 
     void process_ui_tasks()
     {
-      for (;;)
+      // Process up to N tasks per frame to avoid long stalls/re-entrancy
+      const int kMaxPerFrame = 8;
+      for (int i = 0; i < kMaxPerFrame; ++i)
       {
         std::function<void()> fn;
         {

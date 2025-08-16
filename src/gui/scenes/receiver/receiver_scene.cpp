@@ -1,14 +1,39 @@
 #include "receiver_scene.h"
 
 #include "gui/framework/ui_window.h"
+#include "keyboard/input_event.h"
+#include "keyboard/keyboard.h"
+#include "networking/p2p/service.h"
 #include "store.h"
 
-#include <flows/receiver/receiver.h>
 #include <imgui.h>
 
 void ReceiverScene::didMount()
 {
-  // Receiver is started by the app flow; nothing to do here.
+  // Create keyboard and emitter for injecting received events
+  kb_ = keyboard::make_keyboard();
+  emitter_ = kb_ ? kb_->createEmitter() : nullptr;
+
+  // Subscribe to messages on the server-side session and emit them
+  keyboard::Emitter* emitter_ptr = emitter_.get();
+  net::p2p::Service::instance().set_on_server_message(
+      [emitter_ptr](const std::string& payload)
+      {
+        if (!emitter_ptr || payload.empty())
+        {
+          return;
+        }
+        auto ev = keyboard::InputEventJSONConverter::decode(payload);
+        emitter_ptr->emit(ev);
+      });
+}
+
+void ReceiverScene::willUnmount()
+{
+  // Stop receiving injections in this scene
+  net::p2p::Service::instance().set_on_server_message(nullptr);
+  emitter_.reset();
+  kb_.reset();
 }
 
 void ReceiverScene::render()

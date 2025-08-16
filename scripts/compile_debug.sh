@@ -1,0 +1,1 @@
+./scripts/compile.sh -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG='-g -O0 -fsanitize=address -fno-omit-frame-pointer' -DCMAKE_CXX_FLAGS_DEBUG='-g -O0 -fsanitize=address -fno-omit-frame-pointer' -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address'

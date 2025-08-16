@@ -4,6 +4,7 @@
 
 #include <asio.hpp>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <string>
 
@@ -47,35 +48,59 @@ namespace net
       void start_server(std::function<void()> on_ready)
       {
         auto self = shared_from_this();
-        asio::async_read_until(socket_, asio::dynamic_buffer(buffer_), '\n',
-                               [this, self, on_ready](std::error_code ec, std::size_t)
-                               {
-                                 if (!ec)
-                                 {
-                                   // Expect "hello\n"
-                                   if (buffer_.find("hello\n") == 0)
-                                   {
-                                     buffer_.erase(0, 6);
-                                     write_line("welcome\n",
-                                                [this, self, on_ready](std::error_code ec2, std::size_t)
-                                                {
-                                                  if (!ec2)
-                                                  {
-                                                    write_line("ready\n",
-                                                               [this, self, on_ready](std::error_code, std::size_t)
-                                                               {
-                                                                 if (on_ready)
-                                                                 {
-                                                                   on_ready();
-                                                                 }
-                                                                 // start reading application messages
-                                                                 this->read_loop();
-                                                               });
-                                                  }
-                                                });
-                                   }
-                                 }
-                               });
+        asio::async_read_until(
+            socket_, asio::dynamic_buffer(buffer_), '\n',
+            [this, self, on_ready](std::error_code ec, std::size_t /*n*/)
+            {
+              if (ec)
+              {
+                std::cerr << "[p2p][server] read hello failed: " << ec.message() << std::endl;
+                return;
+              }
+              // Extract a single line
+              auto pos = buffer_.find('\n');
+              std::string line = (pos == std::string::npos) ? buffer_ : buffer_.substr(0, pos);
+              if (pos != std::string::npos)
+              {
+                buffer_.erase(0, pos + 1);
+              }
+              // Expect exactly "hello"
+              if (line == "hello")
+              {
+                std::cerr << "[p2p][server] <= hello" << std::endl;
+                write_line("welcome\n",
+                           [this, self, on_ready](std::error_code ec2, std::size_t /*w*/)
+                           {
+                             if (ec2)
+                             {
+                               std::cerr << "[p2p][server] write welcome failed: " << ec2.message() << std::endl;
+                               return;
+                             }
+                             std::cerr << "[p2p][server] => welcome" << std::endl;
+                             write_line("ready\n",
+                                        [this, self, on_ready](std::error_code ec3, std::size_t)
+                                        {
+                                          if (ec3)
+                                          {
+                                            std::cerr << "[p2p][server] write ready failed: " << ec3.message()
+                                                      << std::endl;
+                                            return;
+                                          }
+                                          std::cerr << "[p2p][server] => ready (handshake done)" << std::endl;
+                                          if (on_ready)
+                                          {
+                                            on_ready();
+                                          }
+                                          // start reading application messages
+                                          this->read_loop();
+                                        });
+                           });
+              }
+              else
+              {
+                std::cerr << "[p2p][server] unexpected line: '" << line << "'" << std::endl;
+              }
+            });
       }
 
       // Start handshake as client side (connector side)
@@ -83,38 +108,68 @@ namespace net
       {
         auto self = shared_from_this();
         write_line("hello\n",
-                   [this, self, on_ready](std::error_code ec, std::size_t)
+                   [this, self, on_ready](std::error_code ec, std::size_t /*n*/)
                    {
-                     if (!ec)
+                     if (ec)
                      {
-                       asio::async_read_until(socket_, asio::dynamic_buffer(buffer_), '\n',
-                                              [this, self, on_ready](std::error_code ec2, std::size_t)
-                                              {
-                                                if (!ec2)
-                                                {
-                                                  // Expect welcome then ready
-                                                  if (buffer_.find("welcome\n") == 0)
-                                                  {
-                                                    buffer_.erase(0, 8);
-                                                    asio::async_read_until(
-                                                        socket_, asio::dynamic_buffer(buffer_), '\n',
-                                                        [this, self, on_ready](std::error_code ec3, std::size_t)
-                                                        {
-                                                          if (!ec3 && buffer_.find("ready\n") == 0)
-                                                          {
-                                                            buffer_.erase(0, 6);
-                                                            if (on_ready)
-                                                            {
-                                                              on_ready();
-                                                            }
-                                                            // start reading application messages
-                                                            this->read_loop();
-                                                          }
-                                                        });
-                                                  }
-                                                }
-                                              });
+                       std::cerr << "[p2p][client] write hello failed: " << ec.message() << std::endl;
+                       return;
                      }
+                     std::cerr << "[p2p][client] => hello" << std::endl;
+                     asio::async_read_until(
+                         socket_, asio::dynamic_buffer(buffer_), '\n',
+                         [this, self, on_ready](std::error_code ec2, std::size_t /*n*/)
+                         {
+                           if (ec2)
+                           {
+                             std::cerr << "[p2p][client] read welcome failed: " << ec2.message() << std::endl;
+                             return;
+                           }
+                           auto pos = buffer_.find('\n');
+                           std::string line = (pos == std::string::npos) ? buffer_ : buffer_.substr(0, pos);
+                           if (pos != std::string::npos)
+                           {
+                             buffer_.erase(0, pos + 1);
+                           }
+                           if (line == "welcome")
+                           {
+                             std::cerr << "[p2p][client] <= welcome" << std::endl;
+                             asio::async_read_until(
+                                 socket_, asio::dynamic_buffer(buffer_), '\n',
+                                 [this, self, on_ready](std::error_code ec3, std::size_t /*n*/)
+                                 {
+                                   if (ec3)
+                                   {
+                                     std::cerr << "[p2p][client] read ready failed: " << ec3.message() << std::endl;
+                                     return;
+                                   }
+                                   auto pos2 = buffer_.find('\n');
+                                   std::string line2 = (pos2 == std::string::npos) ? buffer_ : buffer_.substr(0, pos2);
+                                   if (pos2 != std::string::npos)
+                                   {
+                                     buffer_.erase(0, pos2 + 1);
+                                   }
+                                   if (line2 == "ready")
+                                   {
+                                     std::cerr << "[p2p][client] <= ready (handshake done)" << std::endl;
+                                     if (on_ready)
+                                     {
+                                       on_ready();
+                                     }
+                                     // start reading application messages
+                                     this->read_loop();
+                                   }
+                                   else
+                                   {
+                                     std::cerr << "[p2p][client] unexpected line: '" << line2 << "'" << std::endl;
+                                   }
+                                 });
+                           }
+                           else
+                           {
+                             std::cerr << "[p2p][client] unexpected line: '" << line << "'" << std::endl;
+                           }
+                         });
                    });
       }
 

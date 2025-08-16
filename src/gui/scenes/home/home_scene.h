@@ -15,6 +15,7 @@ class HomeScene : public gui::framework::UIScene
 public:
   void didMount() override;
   void willUnmount() override;
+  ~HomeScene() override;
 
 private:
   void render() override;

@@ -23,21 +23,6 @@ int main(int argc, char* argv[])
 {
   store::init();
 
-  cli::Options opt = cli::parse(argc, argv);
-
-  if (opt.help)
-  {
-    cli::print_usage(argv[0]);
-    return 0;
-  }
-
-  if (!opt.valid)
-  {
-    std::cout << opt.error << std::endl;
-    cli::print_usage(argv[0]);
-    return 1;
-  }
-
   // Initiate a UIWindow & UIScene and run UI loop
   gui::framework::init_window();
   HomeScene scene;
@@ -49,14 +34,4 @@ int main(int argc, char* argv[])
   }
 
   gui::framework::deinit_window();
-
-  // auto server = net::make_server();
-  // auto kb = keyboard::make_keyboard();
-
-  // if (opt.mode == "receiver")
-  // {
-  //   return flows::run_receiver(opt, *server, *kb);
-  // }
-
-  // return flows::run_sender(opt, *server, *kb);
 }

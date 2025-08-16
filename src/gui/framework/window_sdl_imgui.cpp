@@ -118,6 +118,13 @@ namespace gui
         return;
       }
 
+      // Give current scene a chance to clean up before tearing down UI systems
+      if (scene_)
+      {
+        scene_->willUnmount();
+        scene_ = nullptr;
+      }
+
       // Shutdown ImGui backends and context
       ImGui_ImplSDLRenderer3_Shutdown();
       ImGui_ImplSDL3_Shutdown();
