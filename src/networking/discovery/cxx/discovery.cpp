@@ -257,16 +257,13 @@ namespace net
         }
         running_ = true;
         service_port_ = servicePort;
-        // Create networking server and start local receiver for inbound messages
-        if (!server_)
-        {
-          server_ = net::make_server();
-        }
+        // Start local receiver for inbound messages
         if (!receiver_)
         {
           try
           {
-            receiver_ = server_->createReceiver(service_port_);
+            auto server = net::make_server();
+            receiver_ = server->createReceiver(service_port_);
           }
           catch (const std::system_error& e)
           {
@@ -289,12 +286,12 @@ namespace net
                     // Populate candidate with remote ip if available
                     std::string ip = remote; // may be empty
                     entities::ConnectionCandidate cc(false, "", ip, std::to_string(service_port_));
+                    // Invoke directly; stop_discovery handles joining safely
                     cb(cc, msg);
                   }
                 });
-            // Launch receiver in a detached thread – it is designed to live for the process lifetime.
+            // Launch receiver thread (join on stop to avoid races)
             recv_thr_ = std::thread([this]() { receiver_->run(); });
-            recv_thr_.detach();
           }
         }
         thr_ = std::thread([this] { this->loop(); });
@@ -315,18 +312,16 @@ namespace net
         {
           receiver_->stop();
         }
-        // Senders are cleaned up below.
-        // Disconnect and clear all senders
-        std::unordered_map<std::string, std::unique_ptr<net::Sender>> to_close;
+        if (recv_thr_.joinable())
         {
-          std::lock_guard<std::mutex> lk(m_);
-          to_close.swap(senders_);
-        }
-        for (auto& kv : to_close)
-        {
-          if (kv.second)
+          if (std::this_thread::get_id() == recv_thr_.get_id())
           {
-            kv.second->disconnect();
+            // Avoid joining self; detach and let it finish
+            recv_thr_.detach();
+          }
+          else
+          {
+            recv_thr_.join();
           }
         }
         // Release receiver after stopping it so the port can be rebound later
@@ -441,8 +436,6 @@ namespace net
               {
                 cb(cc);
               }
-              // Create and connect a Sender for this server for future sendMessage calls
-              ensure_sender_for(cc);
             }
           }
 
@@ -471,8 +464,7 @@ namespace net
               const std::string k = cand.ip() + ":" + cand.port();
               seen.erase(k);
               lostCb(cand);
-              // Remove associated sender if any
-              remove_sender_for_key(k);
+              // No pooled sender to clean up
             }
           }
         }
@@ -484,72 +476,23 @@ namespace net
         return running_;
       }
 
-      static std::string key_for(const entities::ConnectionCandidate& c) { return c.ip() + ":" + c.port(); }
-
-      // Ensure a connected Sender exists for the given candidate
-      void ensure_sender_for(const entities::ConnectionCandidate& c)
-      {
-        const std::string key = key_for(c);
-        std::lock_guard<std::mutex> lk(m_);
-        if (!server_)
-        {
-          server_ = net::make_server();
-        }
-        if (senders_.find(key) != senders_.end())
-        {
-          return;
-        }
-        auto s = server_->createSender(c.ip(), std::atoi(c.port().c_str()));
-        if (s)
-        {
-          s->connect();
-          senders_[key] = std::move(s);
-        }
-      }
-
-      void remove_sender_for_key(const std::string& key)
-      {
-        std::lock_guard<std::mutex> lk(m_);
-        auto it = senders_.find(key);
-        if (it != senders_.end())
-        {
-          if (it->second)
-          {
-            it->second->disconnect();
-          }
-          senders_.erase(it);
-        }
-      }
+      // No pooled senders; senders are created on demand in sendMessage.
 
       int sendMessage(const entities::ConnectionCandidate& target, const std::string& message) override
       {
-        const std::string key = key_for(target);
-        net::Sender* s = nullptr;
-        {
-          std::lock_guard<std::mutex> lk(m_);
-          auto it = senders_.find(key);
-          if (it != senders_.end())
-          {
-            s = it->second.get();
-          }
-        }
-        if (!s)
-        {
-          // Create sender without holding the lock to avoid deadlock
-          ensure_sender_for(target);
-          std::lock_guard<std::mutex> lk(m_);
-          auto it = senders_.find(key);
-          if (it == senders_.end())
-          {
-            return 2;
-          }
-          s = it->second.get();
-        }
-        if (!s)
+        auto server = net::make_server();
+        auto sender = server->createSender(target.ip(), std::atoi(target.port().c_str()));
+        if (!sender)
         {
           return 2;
         }
-        return s->send_tcp(message);
+        if (sender->connect() != 0)
+        {
+          return 2;
+        }
+        const int rc = sender->send_tcp(message);
+        sender->disconnect();
+        return rc;
       }
 
       mutable std::mutex m_;
@@ -559,11 +502,9 @@ namespace net
       LostHandler lost_handler_;
       MessageHandler msg_handler_;
       std::thread thr_;
-      // Networking components for receiving and sending
-      std::unique_ptr<net::Server> server_;
+      // Networking components
       std::unique_ptr<net::Receiver> receiver_;
       std::thread recv_thr_;
-      std::unordered_map<std::string, std::unique_ptr<net::Sender>> senders_;
     };
 
     // Internal accessor to the singleton pointer

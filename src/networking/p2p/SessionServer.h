@@ -1,0 +1,199 @@
+#pragma once
+
+#include "Message.h"
+
+#include <asio.hpp>
+#include <functional>
+#include <memory>
+#include <string>
+
+namespace net
+{
+  namespace p2p
+  {
+
+    // Simple TCP session that exchanges hello/welcome/ready
+    class Session : public std::enable_shared_from_this<Session>
+    {
+    public:
+      using Ptr = std::shared_ptr<Session>;
+
+      explicit Session(asio::ip::tcp::socket socket) : socket_(std::move(socket)) {}
+
+      // Set callback for newline-delimited messages after handshake
+      void set_on_message(std::function<void(const std::string&)> cb) { on_message_ = std::move(cb); }
+
+      // Send a line (appends \n if missing)
+      template <typename Handler = std::function<void(std::error_code)>>
+      void send_line(const std::string& line, Handler done = {})
+      {
+        auto self = shared_from_this();
+        std::string out = line;
+        if (out.empty() || out.back() != '\n')
+        {
+          out.push_back('\n');
+        }
+        asio::async_write(socket_, asio::buffer(out),
+                          [self, done](std::error_code ec, std::size_t)
+                          {
+                            if (done)
+                            {
+                              done(ec);
+                            }
+                          });
+      }
+
+      // Start handshake as server side (acceptor side)
+      void start_server(std::function<void()> on_ready)
+      {
+        auto self = shared_from_this();
+        asio::async_read_until(socket_, asio::dynamic_buffer(buffer_), '\n',
+                               [this, self, on_ready](std::error_code ec, std::size_t)
+                               {
+                                 if (!ec)
+                                 {
+                                   // Expect "hello\n"
+                                   if (buffer_.find("hello\n") == 0)
+                                   {
+                                     buffer_.erase(0, 6);
+                                     write_line("welcome\n",
+                                                [this, self, on_ready](std::error_code ec2, std::size_t)
+                                                {
+                                                  if (!ec2)
+                                                  {
+                                                    write_line("ready\n",
+                                                               [this, self, on_ready](std::error_code, std::size_t)
+                                                               {
+                                                                 if (on_ready)
+                                                                 {
+                                                                   on_ready();
+                                                                 }
+                                                                 // start reading application messages
+                                                                 this->read_loop();
+                                                               });
+                                                  }
+                                                });
+                                   }
+                                 }
+                               });
+      }
+
+      // Start handshake as client side (connector side)
+      void start_client(std::function<void()> on_ready)
+      {
+        auto self = shared_from_this();
+        write_line("hello\n",
+                   [this, self, on_ready](std::error_code ec, std::size_t)
+                   {
+                     if (!ec)
+                     {
+                       asio::async_read_until(socket_, asio::dynamic_buffer(buffer_), '\n',
+                                              [this, self, on_ready](std::error_code ec2, std::size_t)
+                                              {
+                                                if (!ec2)
+                                                {
+                                                  // Expect welcome then ready
+                                                  if (buffer_.find("welcome\n") == 0)
+                                                  {
+                                                    buffer_.erase(0, 8);
+                                                    asio::async_read_until(
+                                                        socket_, asio::dynamic_buffer(buffer_), '\n',
+                                                        [this, self, on_ready](std::error_code ec3, std::size_t)
+                                                        {
+                                                          if (!ec3 && buffer_.find("ready\n") == 0)
+                                                          {
+                                                            buffer_.erase(0, 6);
+                                                            if (on_ready)
+                                                            {
+                                                              on_ready();
+                                                            }
+                                                            // start reading application messages
+                                                            this->read_loop();
+                                                          }
+                                                        });
+                                                  }
+                                                }
+                                              });
+                     }
+                   });
+      }
+
+      asio::ip::tcp::socket& socket() { return socket_; }
+
+    private:
+      void read_loop()
+      {
+        auto self = shared_from_this();
+        asio::async_read_until(socket_, asio::dynamic_buffer(buffer_), '\n',
+                               [this, self](std::error_code ec, std::size_t)
+                               {
+                                 if (ec)
+                                 {
+                                   return; // closed
+                                 }
+                                 auto pos = buffer_.find('\n');
+                                 if (pos != std::string::npos)
+                                 {
+                                   std::string line = buffer_.substr(0, pos);
+                                   buffer_.erase(0, pos + 1);
+                                   if (on_message_)
+                                   {
+                                     on_message_(line);
+                                   }
+                                 }
+                                 read_loop();
+                               });
+      }
+      template <typename Handler> void write_line(const std::string& s, Handler&& h)
+      {
+        auto self = shared_from_this();
+        asio::async_write(socket_, asio::buffer(s), std::forward<Handler>(h));
+      }
+
+      asio::ip::tcp::socket socket_;
+      std::string buffer_;
+      std::function<void(const std::string&)> on_message_;
+    };
+
+    class SessionServer
+    {
+    public:
+      using NewSessionHandler = std::function<void(Session::Ptr)>;
+
+      SessionServer(asio::io_context& io, uint16_t port = 0) : io_(io), acceptor_(io)
+      {
+        asio::ip::tcp::endpoint ep(asio::ip::tcp::v4(), port);
+        acceptor_.open(ep.protocol());
+        acceptor_.set_option(asio::ip::tcp::acceptor::reuse_address(true));
+        acceptor_.bind(ep);
+        acceptor_.listen();
+      }
+
+      uint16_t port() const { return acceptor_.local_endpoint().port(); }
+
+      void async_accept(NewSessionHandler on_new)
+      {
+        auto sock = std::make_shared<asio::ip::tcp::socket>(io_);
+        acceptor_.async_accept(*sock,
+                               [this, sock, on_new](std::error_code ec)
+                               {
+                                 if (!ec)
+                                 {
+                                   auto session = std::make_shared<Session>(std::move(*sock));
+                                   if (on_new)
+                                   {
+                                     on_new(session);
+                                   }
+                                 }
+                                 // Keep accepting
+                                 async_accept(on_new);
+                               });
+      }
+
+    private:
+      asio::io_context& io_;
+      asio::ip::tcp::acceptor acceptor_;
+    };
+
+  } // namespace p2p
+} // namespace net

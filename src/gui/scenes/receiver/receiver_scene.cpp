@@ -5,11 +5,10 @@
 
 #include <flows/receiver/receiver.h>
 #include <imgui.h>
-#include <thread>
 
 void ReceiverScene::didMount()
 {
-  std::thread([]() { flows::run_receiver(); }).detach();
+  // Receiver is started by the app flow; nothing to do here.
 }
 
 void ReceiverScene::render()

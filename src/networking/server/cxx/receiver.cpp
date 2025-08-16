@@ -69,12 +69,6 @@ namespace net
     }
     int run() override
     {
-      // Start UDP discovery responder for clients with no configured IP
-      auto responder = discovery::make_responder(port_, "keyleport");
-      if (responder)
-      {
-        responder->start_async();
-      }
       // Accept TCP connections in a background thread
       std::thread([this]() { this->accept_loop(); }).detach();
       // Blocking UDP loop

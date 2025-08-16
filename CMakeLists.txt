@@ -24,6 +24,8 @@ endif()
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/server/(macos|windows)/.*\\.cpp$")
 # Remove platform-specific discovery folders; use cxx implementation
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/discovery/(macos|windows)/.*\\.cpp$")
+# Exclude the standalone P2P demo main from the main app; it builds as a separate target
+list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/p2p/Main\\.cpp$")
 
 # Windows: SDL3 is required; provide SDL3_DIR or CMAKE_PREFIX_PATH
 if(WIN32)
@@ -167,3 +169,20 @@ if(CLANG_FORMAT_BIN)
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Running clang-format on project sources")
 endif()
+
+# ------------------------
+# P2P demo standalone target
+# ------------------------
+set(P2P_DEMO_SOURCES
+  src/networking/p2p/Main.cpp
+  src/networking/p2p/Message.cpp
+  src/networking/p2p/DiscoveryServer.cpp
+  src/networking/p2p/Peer.cpp
+)
+add_executable(p2p_demo ${P2P_DEMO_SOURCES})
+target_include_directories(p2p_demo PRIVATE src)
+if(DEFINED asio_SOURCE_DIR)
+  target_include_directories(p2p_demo PRIVATE ${asio_SOURCE_DIR}/asio/include)
+endif()
+target_compile_definitions(p2p_demo PRIVATE ASIO_STANDALONE)
+target_link_libraries(p2p_demo PRIVATE nlohmann_json::nlohmann_json)

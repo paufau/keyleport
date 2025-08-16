@@ -10,6 +10,8 @@
 // SDL3 headers
 #include <SDL3/SDL.h>
 // ImGui
+#include "ui_dispatch.h"
+
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_sdlrenderer3.h>
 #include <imgui.h>
@@ -265,6 +267,9 @@ namespace gui
       {
         scene_->render();
       }
+
+      // Run any cross-thread UI tasks (e.g., scene changes posted from networking threads)
+      gui::framework::process_ui_tasks();
 
       // Rendering
       ImGui::Render();

@@ -76,8 +76,6 @@ namespace net
       return 0;
     }
 
-    int run() override { return 0; }
-
     int send_tcp(const std::string& data) override
     {
       if (!tcp_sock_.is_open())

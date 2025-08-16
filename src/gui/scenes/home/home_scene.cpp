@@ -1,54 +1,90 @@
 #include "home_scene.h"
 
+#include "gui/framework/ui_dispatch.h"
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/receiver/receiver_scene.h"
 #include "gui/scenes/sender/sender_scene.h"
+#include "networking/p2p/DiscoveryServer.h"
+#include "networking/p2p/SessionServer.h"
 #include "store.h"
 
 #include <algorithm>
 #include <imgui.h>
 #include <iostream>
-#include <networking/discovery/discovery.h>
+#include <random>
+static std::string gen_id()
+{
+  std::random_device rd;
+  std::mt19937_64 rng(rd());
+  std::uniform_int_distribution<uint64_t> dist;
+  uint64_t a = dist(rng), b = dist(rng);
+  char buf[37];
+  std::snprintf(buf, sizeof(buf), "%08x-%04x-%04x-%04x-%012llx", (unsigned)(a & 0xffffffff),
+                (unsigned)((a >> 32) & 0xffff), (unsigned)(b & 0xffff), (unsigned)((b >> 16) & 0xffff),
+                (unsigned long long)(b >> 32));
+  return std::string(buf);
+}
+
 void HomeScene::didMount()
 {
-  // Create and start the discovery process
-  auto& disc = net::discovery::Discovery::instance();
-  disc.start_discovery(store::connection_state().port.get());
+  // Reset devices list
+  store::connection_state().available_devices.get().clear();
 
-  // When discovered add to available connection state
-  disc.onDiscovered(
-      [&](const entities::ConnectionCandidate& cc)
+  // Prepare io + servers
+  io_.reset(new asio::io_context());
+  instance_id_ = gen_id();
+
+  // TCP session server on ephemeral port
+  session_server_.reset(new net::p2p::SessionServer(*io_, 0));
+  const uint16_t sess_port = session_server_->port();
+
+  // Accept incoming sessions and handle handshake
+  session_server_->async_accept(
+      [this](std::shared_ptr<net::p2p::Session> s)
       {
-        std::cerr << "[discovery] Discovered server: " << cc.ip() << ":" << cc.port() << std::endl;
-        store::connection_state().available_devices.get().push_back(cc);
+        std::cerr << "[p2p] Incoming TCP session from " << s->socket().remote_endpoint() << std::endl;
+        s->start_server(
+            [this]
+            {
+              // Mark busy state in discovery when handshaked
+              if (discovery_)
+              {
+                discovery_->set_state(net::p2p::State::Busy);
+              }
+              // Server side becomes receiver once handshake completes
+              gui::framework::post_to_ui([] { gui::framework::set_window_scene<ReceiverScene>(); });
+            });
       });
 
-  disc.onLost(
-      [&](const entities::ConnectionCandidate& cc)
+  // Discovery
+  discovery_.reset(new net::p2p::DiscoveryServer(*io_, instance_id_, boot_id_, sess_port));
+  discovery_->set_state(net::p2p::State::Idle);
+  discovery_->set_on_peer_update(
+      [this](const net::p2p::Peer& p)
       {
-        std::cerr << "[discovery] Lost server: " << cc.ip() << ":" << cc.port() << std::endl;
+        // Update devices list in store
         auto& devices = store::connection_state().available_devices.get();
-        devices.erase(std::remove_if(devices.begin(), devices.end(),
-                                     [&](const entities::ConnectionCandidate& d) { return d.ip() == cc.ip(); }),
-                      devices.end());
-      });
+        const std::string ip = p.ip_address;
+        const std::string port = std::to_string(p.session_port);
+        const bool busy = (p.state == net::p2p::State::Busy);
+        const std::string name = p.instance_id;
 
-  disc.onMessage(
-      [&](const entities::ConnectionCandidate& cc, const std::string& msg)
-      {
-        std::cerr << "[discovery] Message from " << cc.ip() << ":" << cc.port() << " - " << msg << std::endl;
-
-        if (msg == "become_receiver")
+        auto it = std::find_if(devices.begin(), devices.end(), [&](const entities::ConnectionCandidate& d)
+                               { return d.ip() == ip && d.port() == port; });
+        entities::ConnectionCandidate cc(busy, name, ip, port);
+        if (it == devices.end())
         {
-          // Persist the connected device
-          store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(cc));
-          // Stop discovery and free the receiver before starting our receiver scene to avoid port conflicts
-          disc.stop_discovery();
-          net::discovery::Discovery::destroy_instance();
-          // Now switch to receiver UI which starts its own receiver
-          gui::framework::set_window_scene<ReceiverScene>();
+          devices.push_back(cc);
+        }
+        else
+        {
+          *it = cc;
         }
       });
+  discovery_->start();
+
+  // Run IO in background thread
+  io_thread_ = std::thread([this]() { io_->run(); });
 }
 
 void HomeScene::render()
@@ -98,7 +134,33 @@ void HomeScene::render()
       {
         // Persist selected device and set sender scene
         store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(d));
-        net::discovery::Discovery::instance().sendMessage(d, "become_receiver");
+        // Initiate TCP connection (no extra app message required)
+        if (io_)
+        {
+          auto sock = std::make_shared<asio::ip::tcp::socket>(*io_);
+          asio::ip::tcp::endpoint ep(asio::ip::make_address(d.ip()), static_cast<unsigned short>(std::stoi(d.port())));
+          sock->async_connect(ep,
+                              [this, sock](std::error_code ec)
+                              {
+                                if (ec)
+                                {
+                                  std::cerr << "[p2p] Connect failed: " << ec.message() << std::endl;
+                                  return;
+                                }
+                                auto session = std::make_shared<net::p2p::Session>(std::move(*sock));
+                                session->start_client(
+                                    [this, session]
+                                    {
+                                      // Client side is the sender; nothing else needed here
+                                    });
+                                // keep reference while active using key
+                                const std::string key = session->socket().remote_endpoint().address().to_string() +
+                                                        ":" +
+                                                        std::to_string(session->socket().remote_endpoint().port());
+                                sessions_[key] = session;
+                              });
+        }
+        // Navigate to sender scene
         gui::framework::set_window_scene<SenderScene>();
       }
       ImGui::EndDisabled();
@@ -109,4 +171,28 @@ void HomeScene::render()
   }
 
   ImGui::End();
+}
+
+void HomeScene::willUnmount()
+{
+  // Stop IO and cleanup
+  if (io_)
+  {
+    io_->stop();
+  }
+  if (io_thread_.joinable())
+  {
+    if (std::this_thread::get_id() == io_thread_.get_id())
+    {
+      io_thread_.detach();
+    }
+    else
+    {
+      io_thread_.join();
+    }
+  }
+  sessions_.clear();
+  discovery_.reset();
+  session_server_.reset();
+  io_.reset();
 }

@@ -20,13 +20,29 @@ namespace flows
     server_ = net::make_server();
     kb_ = keyboard::make_keyboard();
 
-    // Resolve ip/port
+    // Resolve ip/port: prefer selected device's port (e.g., P2P session port)
     std::string ip;
+    int port = 0;
     if (auto dev = store::connection_state().connected_device.get())
     {
       ip = dev->ip();
+      const std::string p = dev->port();
+      if (!p.empty())
+      {
+        try
+        {
+          port = std::stoi(p);
+        }
+        catch (...)
+        {
+          port = 0;
+        }
+      }
     }
-    int port = store::connection_state().port.get();
+    if (port <= 0)
+    {
+      port = store::connection_state().port.get();
+    }
     if (port <= 0)
     {
       port = 8080;
