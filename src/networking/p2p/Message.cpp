@@ -107,8 +107,7 @@ namespace net
       return m;
     }
 
-    Message make_goodbye(const std::string& instance_id, uint64_t boot_id, const std::string& ip,
-                         uint16_t session_port)
+    Message make_goodbye(const std::string& instance_id, uint64_t boot_id, const std::string& ip, uint16_t session_port)
     {
       Message m;
       m.proto = PROTOCOL;

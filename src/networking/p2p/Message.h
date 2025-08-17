@@ -69,14 +69,14 @@ namespace net
     bool parse_json(const std::string& s, Message& out);
     std::string dump_json(const Message& m);
 
-  // Factory helpers for common messages
+    // Factory helpers for common messages
     Message make_announce(const std::string& instance_id, uint64_t boot_id, const std::string& ip,
                           uint16_t session_port, State state);
     Message make_discover(const std::string& instance_id, uint64_t boot_id);
     Message make_status(const std::string& instance_id, uint64_t boot_id, bool busy, const std::string& ip,
                         uint16_t session_port);
-  Message make_goodbye(const std::string& instance_id, uint64_t boot_id, const std::string& ip,
-             uint16_t session_port);
+    Message make_goodbye(const std::string& instance_id, uint64_t boot_id, const std::string& ip,
+                         uint16_t session_port);
 
   } // namespace p2p
 } // namespace net

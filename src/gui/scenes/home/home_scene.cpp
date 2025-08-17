@@ -6,6 +6,7 @@
 #include "gui/scenes/sender/sender_scene.h"
 #include "networking/p2p/DiscoveryServer.h"
 #include "networking/p2p/SessionServer.h"
+#include "networking/p2p/UdpTransport.h"
 #include "networking/p2p/service.h"
 #include "store.h"
 
@@ -47,8 +48,16 @@ void HomeScene::didMount()
         std::cerr << "[p2p] Incoming TCP session from " << s->socket().remote_endpoint() << std::endl;
         // Register server session globally for receiver scene to consume
         net::p2p::Service::instance().set_server_session(s);
+        // Create a UDP receiver bound to ephemeral port; share its port with the peer over TCP after handshake
+        std::shared_ptr<net::p2p::UdpReceiver> udp_rx;
+        if (io_)
+        {
+          udp_rx = std::make_shared<net::p2p::UdpReceiver>(*io_, 0);
+          udp_rx->start();
+          net::p2p::Service::instance().set_server_udp_receiver(udp_rx);
+        }
         s->start_server(
-            [this, s]
+            [this, s, udp_rx]
             {
               // Mark busy state in discovery when handshaked
               if (discovery_)
@@ -68,6 +77,13 @@ void HomeScene::didMount()
                         std::make_shared<entities::ConnectionCandidate>(false, /*name*/ peer_ip, peer_ip, peer_port));
                     gui::framework::set_window_scene<ReceiverScene>();
                   });
+              // Inform peer about our UDP listen port via TCP control line (after handshake)
+              if (udp_rx)
+              {
+                uint16_t udp_port = udp_rx->port();
+                s->send_line(std::string("udp_port ") + std::to_string(udp_port) + "\n");
+                std::cerr << "[p2p][server] Announced UDP port " << udp_port << " to client" << std::endl;
+              }
             });
       });
 
@@ -178,9 +194,52 @@ void HomeScene::render()
                 // Register client session globally for sender scene to consume
                 net::p2p::Service::instance().set_client_session(session);
                 session->start_client(
-                    [session]
+                    [this, session]
                     {
                       std::cerr << "[p2p] Client handshake done; switching to SenderScene" << std::endl;
+                      // Create a UDP sender targeting the peer using same IP and UDP port read from control channel
+                      // later. For first iteration, assume server uses same TCP port for UDP. If server announces a UDP
+                      // port line, we'll update sender later in on_message.
+                      if (io_)
+                      {
+                        try
+                        {
+                          auto rep = session->socket().remote_endpoint();
+                          // Provisional guess: UDP port equals TCP port until updated
+                          asio::ip::udp::endpoint dest(rep.address(), rep.port());
+                          auto udp_tx = std::make_shared<net::p2p::UdpSender>(*io_, dest);
+                          net::p2p::Service::instance().set_client_udp_sender(udp_tx);
+                        }
+                        catch (...)
+                        {
+                        }
+                      }
+                      // Hook a temporary TCP on_message to capture "udp_port <n>" announcement
+                      session->set_on_message(
+                          [this](const std::string& line)
+                          {
+                            if (line.rfind("udp_port ", 0) == 0)
+                            {
+                              try
+                              {
+                                uint16_t p = static_cast<uint16_t>(std::stoi(line.substr(9)));
+                                auto sess = net::p2p::Service::instance().client_session();
+                                if (sess && io_)
+                                {
+                                  auto rep = sess->socket().remote_endpoint();
+                                  auto udp_tx = std::make_shared<net::p2p::UdpSender>(
+                                      *io_, asio::ip::udp::endpoint(rep.address(), p));
+                                  net::p2p::Service::instance().set_client_udp_sender(udp_tx);
+                                  std::cerr << "[p2p][client] Set UDP dest to " << rep.address().to_string() << ":" << p
+                                            << std::endl;
+                                }
+                              }
+                              catch (...)
+                              {
+                              }
+                              return; // don't forward control line to UI
+                            }
+                          });
                       gui::framework::post_to_ui([] { gui::framework::set_window_scene<SenderScene>(); });
                     });
                 // keep reference while active using key
