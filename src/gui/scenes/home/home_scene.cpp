@@ -60,13 +60,13 @@ void HomeScene::didMount()
               const std::string peer_port = std::to_string(s->socket().remote_endpoint().port());
 
               // Update store on UI thread and then switch scene
-              gui::framework::post_to_ui([peer_ip, peer_port]
-                                         {
-                                           store::connection_state().connected_device.set(
-                                               std::make_shared<entities::ConnectionCandidate>(
-                                                   false, /*name*/ peer_ip, peer_ip, peer_port));
-                                           gui::framework::set_window_scene<ReceiverScene>();
-                                         });
+              gui::framework::post_to_ui(
+                  [peer_ip, peer_port]
+                  {
+                    store::connection_state().connected_device.set(
+                        std::make_shared<entities::ConnectionCandidate>(false, /*name*/ peer_ip, peer_ip, peer_port));
+                    gui::framework::set_window_scene<ReceiverScene>();
+                  });
             });
       });
 

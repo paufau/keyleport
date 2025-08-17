@@ -50,7 +50,7 @@ namespace flows
     {
       scrollThread_.join();
     }
-  // nothing specific to disconnect; P2P Service manages the session lifecycle
+    // nothing specific to disconnect; P2P Service manages the session lifecycle
   }
 
   void SenderFlow::push_event(const keyboard::InputEvent& ev)
@@ -69,8 +69,8 @@ namespace flows
       scrollAgg_.add(ev.dx, ev.dy);
       return;
     }
-  const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-  net::p2p::Service::instance().send_to_peer(payload);
+    const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
+    net::p2p::Service::instance().send_to_peer(payload);
   }
 
   void SenderFlow::push_event(const SDL_Event& sdl_ev)
@@ -98,8 +98,8 @@ namespace flows
       mv.code = 0;
       mv.dx = dx;
       mv.dy = dy;
-  const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
-  net::p2p::Service::instance().send_to_peer(payload);
+      const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
+      net::p2p::Service::instance().send_to_peer(payload);
     }
   }
 
@@ -122,8 +122,8 @@ namespace flows
       sc.code = 0;
       sc.dx = sx;
       sc.dy = sy;
-  const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
-  net::p2p::Service::instance().send_to_peer(payload);
+      const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
+      net::p2p::Service::instance().send_to_peer(payload);
     }
   }
 
