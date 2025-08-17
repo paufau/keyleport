@@ -89,6 +89,10 @@ namespace net
       {
         server_->set_on_message(on_server_message_);
       }
+      if (udp_server_receiver_)
+      {
+        udp_server_receiver_->set_on_message(on_server_message_);
+      }
     }
 
     void Service::send_to_peer_tcp(const std::string& line)
