@@ -96,6 +96,18 @@ void HomeScene::didMount()
           *it = cc;
         }
       });
+  // Remove peers that went offline
+  discovery_->set_on_peer_remove(
+      [this](const net::p2p::Peer& p)
+      {
+        auto& devices = store::connection_state().available_devices.get();
+        const std::string ip = p.ip_address;
+        const std::string port = std::to_string(p.session_port);
+        devices.erase(std::remove_if(devices.begin(), devices.end(), [&](const entities::ConnectionCandidate& d) {
+                           return d.ip() == ip && d.port() == port;
+                         }),
+                      devices.end());
+      });
   discovery_->start();
 
   // Run IO in background thread
