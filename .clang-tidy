@@ -1,0 +1,16 @@
+Checks: "-*,clang-analyzer-*,modernize-*,performance-*,readability-*,bugprone-*"
+WarningsAsErrors: ""
+HeaderFilterRegex: "src/.*"
+AnalyzeTemporaryDtors: false
+FormatStyle: none
+
+# Many compilers warn on unused includes, but clang-tidy can also flag them via readability checks.
+CheckOptions:
+  - key: readability-redundant-declaration
+    value: "true"
+  - key: readability-redundant-control-flow
+    value: "true"
+  - key: modernize-deprecated-headers
+    value: "true"
+  - key: bugprone-unused-return-value
+    value: "true"

@@ -1,0 +1,18 @@
+CompileFlags:
+  Add:
+    - -Wunneeded-internal-declaration
+    - -Wunneeded-member-function
+    - -Wunused-parameter
+    - -Wunused-variable
+    - -Wunused-const-variable
+    - -Wunused-result
+    - -Wmissing-declarations
+    - -Wmissing-prototypes
+    - -Wreserved-identifier
+    - -Wshadow
+
+Diagnostics:
+  UnusedIncludes: Strict
+  ClangTidy:
+    Add: [bugprone-*, modernize-*, performance-*, readability-*]
+# If IWYU is installed as clang plugin, you could add plugin flags here manually, but we prefer CMake IWYU.
