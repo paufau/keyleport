@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SessionServer.h"
+#include "Session.h"
 
 #include <functional>
 #include <memory>
@@ -27,7 +27,8 @@ namespace net
       void set_on_server_message(std::function<void(const std::string&)> cb);
 
       // Send a single line to the peer (prefers client session, falls back to server)
-      void send_to_peer(const std::string& line);
+  void send_to_peer_tcp(const std::string& line);
+  void send_to_peer_udp(const std::string& line);
 
       // Clear sessions and handlers
       void stop();

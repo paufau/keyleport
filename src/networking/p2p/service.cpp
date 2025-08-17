@@ -25,7 +25,6 @@ namespace net
       server_ = std::move(s);
       if (server_)
       {
-        // Attach message handler if provided
         auto cb = on_server_message_;
         server_->set_on_message(
             [cb](const std::string& line)
@@ -64,7 +63,7 @@ namespace net
       }
     }
 
-    void Service::send_to_peer(const std::string& line)
+    void Service::send_to_peer_tcp(const std::string& line)
     {
       Session::Ptr c;
       Session::Ptr s;
@@ -84,10 +83,31 @@ namespace net
       }
     }
 
+    void Service::send_to_peer_udp(const std::string& line)
+    {
+      Session::Ptr c;
+      Session::Ptr s;
+      {
+        std::lock_guard<std::mutex> lk(mtx_);
+        c = client_;
+        s = server_;
+      }
+      // UDP not available; fall back to TCP
+      if (c)
+      {
+        c->send_line(line);
+        return;
+      }
+      if (s)
+      {
+        s->send_line(line);
+      }
+    }
+
     void Service::stop()
     {
       std::lock_guard<std::mutex> lk(mtx_);
-      on_server_message_ = nullptr;
+  on_server_message_ = nullptr;
       client_.reset();
       server_.reset();
     }

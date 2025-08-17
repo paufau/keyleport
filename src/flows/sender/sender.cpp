@@ -64,13 +64,14 @@ namespace flows
       moveAgg_.add(ev.dx, ev.dy);
       return;
     }
-    if (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Scroll)
+  if (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Scroll)
     {
       scrollAgg_.add(ev.dx, ev.dy);
       return;
     }
     const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-    net::p2p::Service::instance().send_to_peer(payload);
+  // Non-aggregated events: send mouse buttons/keys via TCP; moves/scrolls are aggregated and go via UDP
+  net::p2p::Service::instance().send_to_peer_tcp(payload);
   }
 
   void SenderFlow::push_event(const SDL_Event& sdl_ev)
@@ -98,8 +99,8 @@ namespace flows
       mv.code = 0;
       mv.dx = dx;
       mv.dy = dy;
-      const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
-      net::p2p::Service::instance().send_to_peer(payload);
+  const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
+  net::p2p::Service::instance().send_to_peer_udp(payload);
     }
   }
 
@@ -122,8 +123,8 @@ namespace flows
       sc.code = 0;
       sc.dx = sx;
       sc.dy = sy;
-      const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
-      net::p2p::Service::instance().send_to_peer(payload);
+  const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
+  net::p2p::Service::instance().send_to_peer_udp(payload);
     }
   }
 
