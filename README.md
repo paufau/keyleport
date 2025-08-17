@@ -22,7 +22,7 @@ This project is fully developed and maintained thanks to the generous support of
 | Discover Servers | ✅    | ✅      | ❌    |
 | Capture Input    | ✅    | ❌      | ❌    |
 | Emulate Input    | ❌    | ✅      | ❌    |
-| Display UI       | ❌    | ❌      | ❌    |
+| Display UI       | ✅    | ✅      | ❌    |
 
 ## High-level architecture
 
