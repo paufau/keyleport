@@ -47,15 +47,26 @@ void HomeScene::didMount()
         // Register server session globally for receiver scene to consume
         net::p2p::Service::instance().set_server_session(s);
         s->start_server(
-            [this]
+            [this, s]
             {
               // Mark busy state in discovery when handshaked
               if (discovery_)
               {
                 discovery_->set_state(net::p2p::State::Busy);
               }
-              // Server side becomes receiver once handshake completes
-              gui::framework::post_to_ui([] { gui::framework::set_window_scene<ReceiverScene>(); });
+
+              // Extract peer endpoint to show in ReceiverScene
+              const std::string peer_ip = s->socket().remote_endpoint().address().to_string();
+              const std::string peer_port = std::to_string(s->socket().remote_endpoint().port());
+
+              // Update store on UI thread and then switch scene
+              gui::framework::post_to_ui([peer_ip, peer_port]
+                                         {
+                                           store::connection_state().connected_device.set(
+                                               std::make_shared<entities::ConnectionCandidate>(
+                                                   false, /*name*/ peer_ip, peer_ip, peer_port));
+                                           gui::framework::set_window_scene<ReceiverScene>();
+                                         });
             });
       });
 
