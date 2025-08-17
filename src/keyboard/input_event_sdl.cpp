@@ -38,6 +38,17 @@ namespace keyboard
     return ev;
   }
 
+  static inline InputEvent make_mouse_button(uint16_t button, bool down)
+  {
+    InputEvent ev{};
+    ev.type = InputEvent::Type::Mouse;
+    ev.action = down ? InputEvent::Action::Down : InputEvent::Action::Up;
+    ev.code = button; // SDL button codes: 1=left, 2=middle, 3=right, 4=X1, 5=X2
+    ev.dx = 0;
+    ev.dy = 0;
+    return ev;
+  }
+
   InputEvent InputEvent::fromSDL(const SDL_Event& e)
   {
     switch (e.type)
@@ -52,6 +63,10 @@ namespace keyboard
     case SDL_EVENT_MOUSE_WHEEL:
       // SDL wheel gives precise_x/y (float) and x/y (int). Use x/y ints for simplicity.
       return make_scroll(static_cast<int>(e.wheel.x), static_cast<int>(e.wheel.y));
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+      return make_mouse_button(static_cast<uint16_t>(e.button.button), true);
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+      return make_mouse_button(static_cast<uint16_t>(e.button.button), false);
     default:
       break;
     }
