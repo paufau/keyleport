@@ -19,7 +19,7 @@ namespace net
     public:
       using PeerTable = std::unordered_map<std::string, Peer>; // key: instance_id
       using PeerUpdateHandler = std::function<void(const Peer&)>;
-  using PeerRemoveHandler = std::function<void(const Peer&)>;
+      using PeerRemoveHandler = std::function<void(const Peer&)>;
 
       DiscoveryServer(asio::io_context& io, const std::string& instance_id, uint64_t boot_id, uint16_t session_port);
 
@@ -27,7 +27,7 @@ namespace net
       State state() const { return state_; }
 
       void set_on_peer_update(PeerUpdateHandler cb) { on_peer_update_ = std::move(cb); }
-  void set_on_peer_remove(PeerRemoveHandler cb) { on_peer_remove_ = std::move(cb); }
+      void set_on_peer_remove(PeerRemoveHandler cb) { on_peer_remove_ = std::move(cb); }
 
       const PeerTable& peers() const { return peer_table_; }
 
@@ -48,10 +48,10 @@ namespace net
       void handle_receive(const std::string& payload, const asio::ip::udp::endpoint& remote);
 
       void send_message(const Message& m);
-  void send_message_to(const Message& m, const asio::ip::udp::endpoint& dest);
-  void send_broadcast(const Message& m);
+      void send_message_to(const Message& m, const asio::ip::udp::endpoint& dest);
+      void send_broadcast(const Message& m);
       void schedule_heartbeat();
-  void prune_stale_peers();
+      void prune_stale_peers();
 
       asio::io_context& io_;
       std::string instance_id_;
@@ -67,7 +67,7 @@ namespace net
       asio::ip::udp::endpoint sender_endpoint_;
 
       PeerUpdateHandler on_peer_update_;
-  PeerRemoveHandler on_peer_remove_;
+      PeerRemoveHandler on_peer_remove_;
       PeerTable peer_table_;
     };
 

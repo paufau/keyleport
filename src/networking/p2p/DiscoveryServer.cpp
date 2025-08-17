@@ -17,7 +17,7 @@ namespace net
       asio::ip::udp::endpoint listen_ep(asio::ip::udp::v4(), DISCOVERY_PORT);
       socket_.open(listen_ep.protocol());
       socket_.set_option(asio::ip::udp::socket::reuse_address(true));
-  socket_.bind(listen_ep);
+      socket_.bind(listen_ep);
       // Join the multicast group on all interfaces (best-effort)
       socket_.set_option(asio::ip::multicast::join_group(asio::ip::make_address(MULTICAST_ADDR)));
       // Ensure multicast traffic can traverse one hop (same subnet) and reflect locally for self-discovery during dev
@@ -26,8 +26,8 @@ namespace net
       asio::error_code ec;
       socket_.set_option(loop_opt, ec);
       socket_.set_option(hops_opt, ec);
-  // Allow UDP broadcast fallbacks
-  socket_.set_option(asio::socket_base::broadcast(true), ec);
+      // Allow UDP broadcast fallbacks
+      socket_.set_option(asio::socket_base::broadcast(true), ec);
       // Choose a sensible outbound interface for multicast on platforms that require it (e.g., Windows)
       {
         auto best_ip = get_best_local_ip(io_);
@@ -58,18 +58,18 @@ namespace net
       Message m = make_discover(instance_id_, boot_id_);
       m.ip = get_best_local_ip(io_);
       m.port = session_port_;
-  std::cerr << "[p2p][disc] send DISCOVER via multicast and broadcast from ip=" << m.ip
-        << " port=" << m.port << std::endl;
-  send_message(m);
-  send_broadcast(m);
+      std::cerr << "[p2p][disc] send DISCOVER via multicast and broadcast from ip=" << m.ip << " port=" << m.port
+                << std::endl;
+      send_message(m);
+      send_broadcast(m);
     }
 
     void DiscoveryServer::send_status()
     {
       Message m = make_status(instance_id_, boot_id_, state_ == State::Busy, get_best_local_ip(io_), session_port_);
-  std::cerr << "[p2p][disc] send STATUS '" << m.state << "'" << std::endl;
-  send_message(m);
-  send_broadcast(m);
+      std::cerr << "[p2p][disc] send STATUS '" << m.state << "'" << std::endl;
+      send_message(m);
+      send_broadcast(m);
     }
 
     void DiscoveryServer::start_receive()
@@ -104,7 +104,7 @@ namespace net
         return; // Ignore self
       }
 
-  // Update peer entry
+      // Update peer entry
       Peer& p = peer_table_[m.from];
       p.instance_id = m.from;
       p.boot_id = m.boot;
@@ -132,13 +132,13 @@ namespace net
       // If DISCOVER from peer, respond with ANNOUNCE directly to sender (unicast) for reliability across OSes
       if (m.type == "DISCOVER")
       {
-  Message reply = make_announce(instance_id_, boot_id_, get_best_local_ip(io_), session_port_, state_);
+        Message reply = make_announce(instance_id_, boot_id_, get_best_local_ip(io_), session_port_, state_);
         // Unicast back to the discoverer
         asio::ip::udp::endpoint unicast_dest(remote.address(), remote.port());
-  std::cerr << "[p2p][disc] => ANNOUNCE (unicast) to " << unicast_dest << std::endl;
-  send_message_to(reply, unicast_dest);
+        std::cerr << "[p2p][disc] => ANNOUNCE (unicast) to " << unicast_dest << std::endl;
+        send_message_to(reply, unicast_dest);
         // Also multicast to help others update
-  std::cerr << "[p2p][disc] => ANNOUNCE (multicast)" << std::endl;
+        std::cerr << "[p2p][disc] => ANNOUNCE (multicast)" << std::endl;
         send_message(reply);
       }
     }
