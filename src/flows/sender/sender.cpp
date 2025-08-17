@@ -1,8 +1,7 @@
 #include "sender.h"
 
 #include "keyboard/input_event.h"
-#include "networking/discovery/discovery.h"
-#include "store.h"
+#include "networking/p2p/service.h"
 
 #include <atomic>
 #include <chrono>
@@ -16,51 +15,12 @@ namespace flows
 
   bool SenderFlow::start()
   {
-    // Create dependencies
-    server_ = net::make_server();
-    kb_ = keyboard::make_keyboard();
-
-    // Resolve ip/port: prefer selected device's port (e.g., P2P session port)
-    std::string ip;
-    int port = 0;
-    if (auto dev = store::connection_state().connected_device.get())
+    // Use existing P2P service; ensure a session exists
+    auto c = net::p2p::Service::instance().client_session();
+    auto s = net::p2p::Service::instance().server_session();
+    if (!c && !s)
     {
-      ip = dev->ip();
-      const std::string p = dev->port();
-      if (!p.empty())
-      {
-        try
-        {
-          port = std::stoi(p);
-        }
-        catch (...)
-        {
-          port = 0;
-        }
-      }
-    }
-    if (port <= 0)
-    {
-      port = store::connection_state().port.get();
-    }
-    if (port <= 0)
-    {
-      port = 8080;
-    }
-    if (ip.empty())
-    {
-      std::cerr << "[sender] No target device set" << std::endl;
-      return false;
-    }
-
-    sender_ = server_->createSender(ip, port);
-    sender_ptr_ = sender_.get();
-    const int rc = sender_ptr_->connect();
-    if (rc != 0)
-    {
-      std::cerr << "[sender] failed to connect to " << ip << ":" << port << ", rc=" << rc << std::endl;
-      sender_.reset();
-      sender_ptr_ = nullptr;
+      std::cerr << "[sender] P2P session is not established" << std::endl;
       return false;
     }
 
@@ -90,14 +50,7 @@ namespace flows
     {
       scrollThread_.join();
     }
-    if (sender_ptr_)
-    {
-      sender_ptr_->disconnect();
-    }
-    sender_ptr_ = nullptr;
-    sender_.reset();
-    kb_.reset();
-    server_.reset();
+  // nothing specific to disconnect; P2P Service manages the session lifecycle
   }
 
   void SenderFlow::push_event(const keyboard::InputEvent& ev)
@@ -116,12 +69,8 @@ namespace flows
       scrollAgg_.add(ev.dx, ev.dy);
       return;
     }
-    const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-    std::cerr << "[sender] via TCP: " << payload << std::endl;
-    if (sender_ptr_)
-    {
-      sender_ptr_->send_tcp(payload);
-    }
+  const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
+  net::p2p::Service::instance().send_to_peer(payload);
   }
 
   void SenderFlow::push_event(const SDL_Event& sdl_ev)
@@ -149,12 +98,8 @@ namespace flows
       mv.code = 0;
       mv.dx = dx;
       mv.dy = dy;
-      const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
-      std::cerr << "[sender] via UDP (coalesced move): " << payload << std::endl;
-      if (sender_ptr_)
-      {
-        sender_ptr_->send_udp(payload);
-      }
+  const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
+  net::p2p::Service::instance().send_to_peer(payload);
     }
   }
 
@@ -177,12 +122,8 @@ namespace flows
       sc.code = 0;
       sc.dx = sx;
       sc.dy = sy;
-      const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
-      std::cerr << "[sender] via UDP (coalesced scroll): " << payload << std::endl;
-      if (sender_ptr_)
-      {
-        sender_ptr_->send_udp(payload);
-      }
+  const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
+  net::p2p::Service::instance().send_to_peer(payload);
     }
   }
 

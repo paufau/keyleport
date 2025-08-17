@@ -2,6 +2,7 @@
 #pragma once
 
 #include "gui/framework/ui_scene.h"
+#include "flows/sender/sender.h"
 
 class SenderScene : public gui::framework::UIScene
 {
@@ -13,4 +14,5 @@ public:
 private:
   void render() override;
   bool is_mouse_contained_ = true;
+  std::unique_ptr<flows::SenderFlow> flow_;
 };

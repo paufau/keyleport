@@ -3,7 +3,6 @@
 #include "gui/framework/ui_input_manager.h"
 #include "gui/framework/ui_window.h"
 #include "keyboard/input_event.h"
-#include "networking/p2p/service.h"
 #include "store.h"
 
 #include <SDL3/SDL.h>
@@ -13,12 +12,19 @@ void SenderScene::didMount()
 {
   gui::framework::get_window().apply_mouse_confinement();
   is_mouse_contained_ = true;
+  flow_.reset(new flows::SenderFlow());
+  flow_->start();
 }
 
 void SenderScene::willUnmount()
 {
   gui::framework::get_window().release_mouse_confinement();
   is_mouse_contained_ = false;
+  if (flow_)
+  {
+    flow_->stop();
+    flow_.reset();
+  }
 }
 
 void SenderScene::handleInput(const gui::framework::UIInputEvent& event)
@@ -35,10 +41,12 @@ void SenderScene::handleInput(const gui::framework::UIInputEvent& event)
 
   if (is_mouse_contained_)
   {
-    // Convert and send via P2P service as a single JSON line
+    // Convert and forward to flow (which uses P2P service)
     const auto ev = keyboard::InputEvent::fromSDL(event.raw_event);
-    const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-    net::p2p::Service::instance().send_to_peer(payload);
+    if (flow_)
+    {
+      flow_->push_event(ev);
+    }
     event.stopPropagation();
   }
 }

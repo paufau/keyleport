@@ -1,13 +1,13 @@
 #pragma once
 
-#include "keyboard/keyboard.h"
+#include "keyboard/input_event.h"
 #include "move_aggregator.h"
-#include "networking/server/server.h"
-#include "utils/cli/args.h"
 
 #include <atomic>
 #include <memory>
 #include <thread>
+
+union SDL_Event;
 
 namespace flows
 {
@@ -30,11 +30,6 @@ namespace flows
     void scroll_loop();
 
     // State
-    std::unique_ptr<net::Server> server_;
-    std::unique_ptr<keyboard::Keyboard> kb_;
-    std::unique_ptr<net::Sender> sender_;
-    net::Sender* sender_ptr_ = nullptr;
-
     MoveAggregator moveAgg_;
     MoveAggregator scrollAgg_;
     std::thread moveThread_;
