@@ -17,5 +17,7 @@ int main(int argc, char* argv[])
     // No-op; frame is driven by window
   }
 
+  //
+
   gui::framework::deinit_window();
 }

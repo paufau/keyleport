@@ -53,6 +53,23 @@ namespace net
       send_discover(); // Kick things off
     }
 
+    void DiscoveryServer::stop()
+    {
+      // Best-effort BYE to multicast and broadcast so peers can drop us immediately
+      try
+      {
+        Message bye = make_goodbye(instance_id_, boot_id_, get_best_local_ip(io_), session_port_);
+        send_message(bye);
+        send_broadcast(bye);
+      }
+      catch (...)
+      {
+      }
+      asio::error_code ec;
+      heartbeat_timer_.cancel(ec);
+      socket_.close(ec);
+    }
+
     void DiscoveryServer::send_discover()
     {
       Message m = make_discover(instance_id_, boot_id_);
@@ -127,6 +144,17 @@ namespace net
       if (on_peer_update_)
       {
         on_peer_update_(p);
+      }
+
+      // Handle immediate control flows
+      if (m.type == "BYE")
+      {
+        // Remove this peer immediately
+        if (!m.from.empty())
+        {
+          notify_remove_and_erase(m.from);
+        }
+        return;
       }
 
       // If DISCOVER from peer, respond with ANNOUNCE directly to sender (unicast) for reliability across OSes
@@ -204,6 +232,19 @@ namespace net
         {
           ++it;
         }
+      }
+    }
+
+    void DiscoveryServer::notify_remove_and_erase(const std::string& key)
+    {
+      auto it = peer_table_.find(key);
+      if (it != peer_table_.end())
+      {
+        if (on_peer_remove_)
+        {
+          on_peer_remove_(it->second);
+        }
+        peer_table_.erase(it);
       }
     }
 

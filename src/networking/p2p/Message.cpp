@@ -107,5 +107,18 @@ namespace net
       return m;
     }
 
+    Message make_goodbye(const std::string& instance_id, uint64_t boot_id, const std::string& ip,
+                         uint16_t session_port)
+    {
+      Message m;
+      m.proto = PROTOCOL;
+      m.type = "BYE";
+      m.from = instance_id;
+      m.boot = boot_id;
+      m.ip = ip;
+      m.port = session_port;
+      return m;
+    }
+
   } // namespace p2p
 } // namespace net

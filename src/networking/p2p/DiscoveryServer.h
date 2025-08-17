@@ -33,6 +33,8 @@ namespace net
 
       // Begin async operations (receive + heartbeats)
       void start();
+  // Send a final BYE and stop timers/sockets
+  void stop();
 
       // Send immediate discover
       void send_discover();
@@ -52,6 +54,7 @@ namespace net
       void send_broadcast(const Message& m);
       void schedule_heartbeat();
       void prune_stale_peers();
+  void notify_remove_and_erase(const std::string& key);
 
       asio::io_context& io_;
       std::string instance_id_;

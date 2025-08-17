@@ -212,6 +212,11 @@ HomeScene::~HomeScene()
   // Final cleanup on application shutdown
   if (io_)
   {
+    // Announce shutdown so peers can drop us immediately
+    if (discovery_)
+    {
+      discovery_->stop();
+    }
     io_->stop();
   }
   if (io_thread_.joinable())
