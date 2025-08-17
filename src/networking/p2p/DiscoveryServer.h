@@ -46,6 +46,7 @@ namespace net
       void handle_receive(const std::string& payload, const asio::ip::udp::endpoint& remote);
 
       void send_message(const Message& m);
+  void send_message_to(const Message& m, const asio::ip::udp::endpoint& dest);
       void schedule_heartbeat();
 
       asio::io_context& io_;

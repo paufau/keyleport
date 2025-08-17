@@ -18,7 +18,25 @@ namespace net
       socket_.open(listen_ep.protocol());
       socket_.set_option(asio::ip::udp::socket::reuse_address(true));
       socket_.bind(listen_ep);
+      // Join the multicast group on all interfaces (best-effort)
       socket_.set_option(asio::ip::multicast::join_group(asio::ip::make_address(MULTICAST_ADDR)));
+      // Ensure multicast traffic can traverse one hop (same subnet) and reflect locally for self-discovery during dev
+      asio::ip::multicast::enable_loopback loop_opt(true);
+      asio::ip::multicast::hops hops_opt(1);
+      asio::error_code ec;
+      socket_.set_option(loop_opt, ec);
+      socket_.set_option(hops_opt, ec);
+      // Choose a sensible outbound interface for multicast on platforms that require it (e.g., Windows)
+      {
+        auto best_ip = get_best_local_ip(io_);
+        asio::error_code ec_if;
+        auto v4 = asio::ip::make_address_v4(best_ip, ec_if);
+        if (!ec_if)
+        {
+          socket_.set_option(asio::ip::multicast::outbound_interface(v4), ec);
+        }
+      }
+      (void)ec;
     }
 
     void DiscoveryServer::set_state(State s)
@@ -81,7 +99,12 @@ namespace net
       Peer& p = peer_table_[m.from];
       p.instance_id = m.from;
       p.boot_id = m.boot;
-      p.ip_address = !m.ip.empty() ? m.ip : remote.address().to_string();
+      // Prefer the source address observed by us; fall back to advertised IP if needed
+      p.ip_address = remote.address().to_string();
+      if (p.ip_address.empty() && !m.ip.empty())
+      {
+        p.ip_address = m.ip;
+      }
       if (m.port)
       {
         p.session_port = m.port;
@@ -97,10 +120,14 @@ namespace net
         on_peer_update_(p);
       }
 
-      // If DISCOVER or ANNOUNCE from peer, respond with ANNOUNCE
+      // If DISCOVER from peer, respond with ANNOUNCE directly to sender (unicast) for reliability across OSes
       if (m.type == "DISCOVER")
       {
         Message reply = make_announce(instance_id_, boot_id_, get_best_local_ip(io_), session_port_, state_);
+        // Unicast back to the discoverer
+        asio::ip::udp::endpoint unicast_dest(remote.address(), remote.port());
+        send_message_to(reply, unicast_dest);
+        // Also multicast to help others update
         send_message(reply);
       }
     }
@@ -109,6 +136,12 @@ namespace net
     {
       auto data = dump_json(m);
       socket_.async_send_to(asio::buffer(data), multicast_endpoint_, [](std::error_code, std::size_t) {});
+    }
+
+    void DiscoveryServer::send_message_to(const Message& m, const asio::ip::udp::endpoint& dest)
+    {
+      auto data = dump_json(m);
+      socket_.async_send_to(asio::buffer(data), dest, [](std::error_code, std::size_t) {});
     }
 
     void DiscoveryServer::schedule_heartbeat()
