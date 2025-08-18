@@ -24,6 +24,8 @@ endif()
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/server/(macos|windows)/.*\\.cpp$")
 # Remove platform-specific discovery folders; use cxx implementation
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/discovery/(macos|windows)/.*\\.cpp$")
+# Remove platform-specific discovery folders; use cxx implementation
+list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/utils/device_name/(macos|windows)/.*\\.cpp$")
 
 # Windows: SDL3 is required; provide SDL3_DIR or CMAKE_PREFIX_PATH
 if(WIN32)
