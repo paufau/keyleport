@@ -1,5 +1,7 @@
 #include "DiscoveryServer.h"
 
+#include "utils/device_name/device_name.h"
+
 #include <iostream>
 #include <nlohmann/json.hpp>
 
@@ -59,6 +61,7 @@ namespace net
       try
       {
         Message bye = make_goodbye(instance_id_, boot_id_, get_best_local_ip(io_), session_port_);
+        bye.name = get_device_name();
         send_message(bye);
         send_broadcast(bye);
       }
@@ -75,6 +78,7 @@ namespace net
       Message m = make_discover(instance_id_, boot_id_);
       m.ip = get_best_local_ip(io_);
       m.port = session_port_;
+      m.name = get_device_name();
       std::cerr << "[p2p][disc] send DISCOVER via multicast and broadcast from ip=" << m.ip << " port=" << m.port
                 << std::endl;
       send_message(m);
@@ -84,6 +88,7 @@ namespace net
     void DiscoveryServer::send_status()
     {
       Message m = make_status(instance_id_, boot_id_, state_ == State::Busy, get_best_local_ip(io_), session_port_);
+      m.name = get_device_name();
       std::cerr << "[p2p][disc] send STATUS '" << m.state << "'" << std::endl;
       send_message(m);
       send_broadcast(m);
@@ -125,6 +130,10 @@ namespace net
       Peer& p = peer_table_[m.from];
       p.instance_id = m.from;
       p.boot_id = m.boot;
+      if (!m.name.empty())
+      {
+        p.device_name = m.name;
+      }
       // Prefer the source address observed by us; fall back to advertised IP if needed
       p.ip_address = remote.address().to_string();
       if (p.ip_address.empty() && !m.ip.empty())
@@ -161,6 +170,7 @@ namespace net
       if (m.type == "DISCOVER")
       {
         Message reply = make_announce(instance_id_, boot_id_, get_best_local_ip(io_), session_port_, state_);
+        reply.name = get_device_name();
         // Unicast back to the discoverer
         asio::ip::udp::endpoint unicast_dest(remote.address(), remote.port());
         std::cerr << "[p2p][disc] => ANNOUNCE (unicast) to " << unicast_dest << std::endl;
@@ -205,6 +215,7 @@ namespace net
             }
             // Heartbeat as ANNOUNCE with current state
             Message hb = make_announce(instance_id_, boot_id_, get_best_local_ip(io_), session_port_, state_);
+            hb.name = get_device_name();
             send_message(hb);
             // Remove peers that haven't heartbeated for a while
             prune_stale_peers();

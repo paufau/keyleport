@@ -14,6 +14,10 @@ namespace net
       j["type"] = m.type;
       j["from"] = m.from;
       j["boot"] = m.boot;
+      if (!m.name.empty())
+      {
+        j["name"] = m.name;
+      }
       if (!m.ip.empty())
       {
         j["ip"] = m.ip;
@@ -37,6 +41,7 @@ namespace net
         out.type = j.value("type", std::string());
         out.from = j.value("from", std::string());
         out.boot = j.value("boot", 0ULL);
+        out.name = j.value("name", std::string());
         out.ip = j.value("ip", std::string());
         out.port = static_cast<uint16_t>(j.value("port", 0));
         out.state = j.value("state", std::string());

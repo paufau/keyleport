@@ -15,6 +15,7 @@ namespace net
     {
       std::string instance_id;
       uint64_t boot_id = 0;
+      std::string device_name; // human-friendly device identifier
       std::string ip_address;
       uint16_t session_port = 0;
       State state = State::Idle;

@@ -58,6 +58,7 @@ namespace net
       std::string type;  // ANNOUNCE | DISCOVER | BUSY | FREE
       std::string from;  // instance_id
       uint64_t boot = 0; // boot_id
+      std::string name;  // device name (optional)
       std::string ip;    // sender ip
       uint16_t port = 0; // TCP session port
       std::string state; // idle|connecting|busy (in ANNOUNCE)

@@ -9,4 +9,3 @@
 // 3) Platform name (e.g., macos/windows/linux)
 // If all are unavailable, returns an empty string.
 std::string get_device_name();
-

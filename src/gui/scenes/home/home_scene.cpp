@@ -98,7 +98,7 @@ void HomeScene::didMount()
         const std::string ip = p.ip_address;
         const std::string port = std::to_string(p.session_port);
         const bool busy = (p.state == net::p2p::State::Busy);
-        const std::string name = p.instance_id;
+        const std::string name = p.device_name.empty() ? p.instance_id : p.device_name;
 
         auto it = std::find_if(devices.begin(), devices.end(), [&](const entities::ConnectionCandidate& d)
                                { return d.ip() == ip && d.port() == port; });
