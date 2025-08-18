@@ -1,3 +1,4 @@
+#if defined(__APPLE__)
 #include "../device_name.h"
 
 #include "utils/get_platform/platform.h"
@@ -70,3 +71,5 @@ std::string get_device_name()
   }
   return std::string();
 }
+
+#endif // __APPLE__

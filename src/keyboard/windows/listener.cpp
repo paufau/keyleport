@@ -1,3 +1,4 @@
+#if defined(_WIN32)
 #include "../listener.h"
 
 #include <memory>
@@ -29,3 +30,5 @@ namespace keyboard
   }
 
 } // namespace keyboard
+
+#endif

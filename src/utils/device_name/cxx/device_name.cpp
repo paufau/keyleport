@@ -1,3 +1,4 @@
+#if !defined(_WIN32) && !defined(__APPLE__)
 #include "../device_name.h"
 
 #include "utils/get_platform/platform.h"
@@ -88,3 +89,5 @@ std::string get_device_name()
   }
   return std::string();
 }
+
+#endif // generic cxx (non-Windows, non-macOS)

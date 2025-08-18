@@ -1,3 +1,4 @@
+#if defined(__APPLE__)
 #include "../emitter.h"
 
 #include <iostream>
@@ -25,3 +26,5 @@ namespace keyboard
   }
 
 } // namespace keyboard
+
+#endif

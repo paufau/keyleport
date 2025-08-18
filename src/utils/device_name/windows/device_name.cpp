@@ -1,3 +1,4 @@
+#if defined(_WIN32)
 #include "../device_name.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -54,3 +55,5 @@ std::string get_device_name()
   }
   return std::string();
 }
+
+#endif // _WIN32

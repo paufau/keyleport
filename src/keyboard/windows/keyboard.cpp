@@ -1,3 +1,4 @@
+#if defined(_WIN32)
 #include "../keyboard.h"
 
 #include <memory>
@@ -21,3 +22,4 @@ namespace keyboard
   }
 
 } // namespace keyboard
+#endif
