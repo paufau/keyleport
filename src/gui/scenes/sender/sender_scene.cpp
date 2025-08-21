@@ -33,7 +33,7 @@ void SenderScene::handleInput(const gui::framework::UIInputEvent& event)
       gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_LCTRL) &&
       gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_ESCAPE))
   {
-  release_mouse_confinement();
+    release_mouse_confinement();
   }
 
   if (is_mouse_contained_)
@@ -61,18 +61,25 @@ void SenderScene::render()
   // Safely read the currently connected device (may be null)
   const auto device = store::connection_state().connected_device.get();
 
-  if (device)
+  if (is_mouse_contained_)
   {
-    ImGui::Text("You are sending events to %s", device->ip().c_str());
+    if (device)
+    {
+      ImGui::Text("You are sending events to %s", device->name().c_str());
+      ImGui::Text("(%s)", device->ip().c_str());
+    }
+    else
+    {
+      ImGui::TextDisabled("You are sending event to <no device>");
+    }
+
+    ImGui::Spacing();
+    ImGui::TextDisabled("Press Ctrl + Alt + Esc to release mouse");
   }
   else
   {
-    ImGui::TextDisabled("You are sending event to <no device>");
-  }
+    ImGui::TextDisabled("You are not sending events, press Continue to start");
 
-  // When mouse is released, offer a Continue button to re-apply confinement
-  if (!is_mouse_contained_)
-  {
     ImGui::Spacing();
     if (ImGui::Button("Continue"))
     {
