@@ -4,8 +4,7 @@
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/receiver/receiver_scene.h"
 #include "gui/scenes/sender/sender_scene.h"
-#include "networking/p2p/DiscoveryServer.h"
-#include "networking/p2p/SessionServer.h"
+#include "networking/p2p/runtime.h"
 #include "networking/p2p/UdpTransport.h"
 #include "networking/p2p/service.h"
 #include "store.h"
@@ -15,85 +14,20 @@
 #include <iostream>
 #include <random>
 
-static std::string gen_id()
-{
-  std::random_device rd;
-  std::mt19937_64 rng(rd());
-  std::uniform_int_distribution<uint64_t> dist;
-  uint64_t a = dist(rng), b = dist(rng);
-  char buf[37];
-  std::snprintf(buf, sizeof(buf), "%08x-%04x-%04x-%04x-%012llx", (unsigned)(a & 0xffffffff),
-                (unsigned)((a >> 32) & 0xffff), (unsigned)(b & 0xffff), (unsigned)((b >> 16) & 0xffff),
-                (unsigned long long)(b >> 32));
-  return std::string(buf);
-}
+// no local gen_id; handled by net::p2p::Runtime
 
 void HomeScene::didMount()
 {
   // Reset devices list
   store::connection_state().available_devices.get().clear();
 
-  // Prepare io + servers
-  io_.reset(new asio::io_context());
-  instance_id_ = gen_id();
+  auto& rt = net::p2p::Runtime::instance();
+  (void)rt.session_port();
 
-  // TCP session server on ephemeral port
-  session_server_.reset(new net::p2p::SessionServer(*io_, 0));
-  const uint16_t sess_port = session_server_->port();
-
-  // Accept incoming sessions and handle handshake
-  session_server_->async_accept(
-      [this](std::shared_ptr<net::p2p::Session> s)
-      {
-        std::cerr << "[p2p] Incoming TCP session from " << s->socket().remote_endpoint() << std::endl;
-        // Register server session globally for receiver scene to consume
-        net::p2p::Service::instance().set_server_session(s);
-        // Create a UDP receiver bound to ephemeral port; share its port with the peer over TCP after handshake
-        std::shared_ptr<net::p2p::UdpReceiver> udp_rx;
-        if (io_)
-        {
-          udp_rx = std::make_shared<net::p2p::UdpReceiver>(*io_, 0);
-          udp_rx->start();
-          net::p2p::Service::instance().set_server_udp_receiver(udp_rx);
-        }
-        s->start_server(
-            [this, s, udp_rx]
-            {
-              // Mark busy state in discovery when handshaked
-              if (discovery_)
-              {
-                discovery_->set_state(net::p2p::State::Busy);
-              }
-
-              // Extract peer endpoint to show in ReceiverScene
-              const std::string peer_ip = s->socket().remote_endpoint().address().to_string();
-              const std::string peer_port = std::to_string(s->socket().remote_endpoint().port());
-
-              // Update store on UI thread and then switch scene
-              gui::framework::post_to_ui(
-                  [peer_ip, peer_port]
-                  {
-                    store::connection_state().connected_device.set(
-                        std::make_shared<entities::ConnectionCandidate>(false, /*name*/ peer_ip, peer_ip, peer_port));
-                    gui::framework::set_window_scene<ReceiverScene>();
-                  });
-              // Inform peer about our UDP listen port via TCP control line (after handshake)
-              if (udp_rx)
-              {
-                uint16_t udp_port = udp_rx->port();
-                s->send_line(std::string("udp_port ") + std::to_string(udp_port) + "\n");
-                std::cerr << "[p2p][server] Announced UDP port " << udp_port << " to client" << std::endl;
-              }
-            });
-      });
-
-  // Discovery
-  discovery_.reset(new net::p2p::DiscoveryServer(*io_, instance_id_, boot_id_, sess_port));
-  discovery_->set_state(net::p2p::State::Idle);
-  discovery_->set_on_peer_update(
+  // Update store on peer updates
+  rt.set_on_peer_update(
       [this](const net::p2p::Peer& p)
       {
-        // Update devices list in store
         auto& devices = store::connection_state().available_devices.get();
         const std::string ip = p.ip_address;
         const std::string port = std::to_string(p.session_port);
@@ -112,8 +46,7 @@ void HomeScene::didMount()
           *it = cc;
         }
       });
-  // Remove peers that went offline
-  discovery_->set_on_peer_remove(
+  rt.set_on_peer_remove(
       [this](const net::p2p::Peer& p)
       {
         auto& devices = store::connection_state().available_devices.get();
@@ -123,10 +56,19 @@ void HomeScene::didMount()
                                      { return d.ip() == ip && d.port() == port; }),
                       devices.end());
       });
-  discovery_->start();
 
-  // Run IO in background thread
-  io_thread_ = std::thread([this]() { io_->run(); });
+  // Incoming server session -> populate store and switch to ReceiverScene
+  rt.set_on_server_ready(
+      [](const std::string& peer_ip, const std::string& peer_port)
+      {
+        gui::framework::post_to_ui(
+            [peer_ip, peer_port]
+            {
+              store::connection_state().connected_device.set(
+                  std::make_shared<entities::ConnectionCandidate>(false, /*name*/ peer_ip, peer_ip, peer_port));
+              gui::framework::set_window_scene<ReceiverScene>();
+            });
+      });
 }
 
 void HomeScene::render()
@@ -177,9 +119,9 @@ void HomeScene::render()
         // Persist selected device and set sender scene
         store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(d));
         // Initiate TCP connection (no extra app message required)
-        if (io_)
+        if (true)
         {
-          auto sock = std::make_shared<asio::ip::tcp::socket>(*io_);
+          auto sock = std::make_shared<asio::ip::tcp::socket>(net::p2p::Runtime::instance().io());
           asio::ip::tcp::endpoint ep(asio::ip::make_address(d.ip()), static_cast<unsigned short>(std::stoi(d.port())));
           sock->async_connect(
               ep,
@@ -197,28 +139,24 @@ void HomeScene::render()
                     [this, session]
                     {
                       // Mark busy state in discovery when client handshaked (sender role)
-                      if (discovery_)
-                      {
-                        discovery_->set_state(net::p2p::State::Busy);
-                      }
+                      net::p2p::Runtime::instance().set_discovery_state(net::p2p::State::Busy);
                       std::cerr << "[p2p] Client handshake done; switching to SenderScene" << std::endl;
                       // Create a UDP sender targeting the peer using same IP and UDP port read from control channel
                       // later. For first iteration, assume server uses same TCP port for UDP. If server announces a UDP
                       // port line, we'll update sender later in on_message.
-                      if (io_)
-                      {
+            {
                         try
                         {
                           auto rep = session->socket().remote_endpoint();
                           // Provisional guess: UDP port equals TCP port until updated
                           asio::ip::udp::endpoint dest(rep.address(), rep.port());
-                          auto udp_tx = std::make_shared<net::p2p::UdpSender>(*io_, dest);
+              auto udp_tx = std::make_shared<net::p2p::UdpSender>(net::p2p::Runtime::instance().io(), dest);
                           net::p2p::Service::instance().set_client_udp_sender(udp_tx);
                         }
                         catch (...)
                         {
                         }
-                      }
+            }
                       // Hook a temporary TCP on_message to capture "udp_port <n>" announcement
                       session->set_on_message(
                           [this](const std::string& line)
@@ -229,11 +167,11 @@ void HomeScene::render()
                               {
                                 uint16_t p = static_cast<uint16_t>(std::stoi(line.substr(9)));
                                 auto sess = net::p2p::Service::instance().client_session();
-                                if (sess && io_)
+                                if (sess)
                                 {
                                   auto rep = sess->socket().remote_endpoint();
                                   auto udp_tx = std::make_shared<net::p2p::UdpSender>(
-                                      *io_, asio::ip::udp::endpoint(rep.address(), p));
+                                      net::p2p::Runtime::instance().io(), asio::ip::udp::endpoint(rep.address(), p));
                                   net::p2p::Service::instance().set_client_udp_sender(udp_tx);
                                   std::cerr << "[p2p][client] Set UDP dest to " << rep.address().to_string() << ":" << p
                                             << std::endl;
@@ -266,37 +204,10 @@ void HomeScene::render()
 
 void HomeScene::willUnmount()
 {
-  // Keep P2P IO + sessions alive across scene transitions.
-  // They are used by Sender/Receiver scenes via net::p2p::Service and own background io thread.
-  // Cleanup is deferred to app shutdown.
+  // Nothing to do; P2P runtime persists across scenes.
 }
 
 HomeScene::~HomeScene()
 {
-  // Final cleanup on application shutdown
-  if (io_)
-  {
-    // Announce shutdown so peers can drop us immediately
-    if (discovery_)
-    {
-      discovery_->stop();
-    }
-    io_->stop();
-  }
-  if (io_thread_.joinable())
-  {
-    if (std::this_thread::get_id() == io_thread_.get_id())
-    {
-      io_thread_.detach();
-    }
-    else
-    {
-      io_thread_.join();
-    }
-  }
-  sessions_.clear();
-  discovery_.reset();
-  session_server_.reset();
-  net::p2p::Service::instance().stop();
-  io_.reset();
+  // Nothing to do; P2P runtime is shut down in main.
 }
