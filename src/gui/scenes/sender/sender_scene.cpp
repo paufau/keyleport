@@ -10,16 +10,14 @@
 
 void SenderScene::didMount()
 {
-  gui::framework::get_window().apply_mouse_confinement();
-  is_mouse_contained_ = true;
+  apply_mouse_confinement();
   flow_.reset(new flows::SenderFlow());
   flow_->start();
 }
 
 void SenderScene::willUnmount()
 {
-  gui::framework::get_window().release_mouse_confinement();
-  is_mouse_contained_ = false;
+  release_mouse_confinement();
   if (flow_)
   {
     flow_->stop();
@@ -35,8 +33,7 @@ void SenderScene::handleInput(const gui::framework::UIInputEvent& event)
       gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_LCTRL) &&
       gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_ESCAPE))
   {
-    gui::framework::get_window().release_mouse_confinement();
-    is_mouse_contained_ = false;
+  release_mouse_confinement();
   }
 
   if (is_mouse_contained_)
@@ -73,5 +70,27 @@ void SenderScene::render()
     ImGui::TextDisabled("You are sending event to <no device>");
   }
 
+  // When mouse is released, offer a Continue button to re-apply confinement
+  if (!is_mouse_contained_)
+  {
+    ImGui::Spacing();
+    if (ImGui::Button("Continue"))
+    {
+      apply_mouse_confinement();
+    }
+  }
+
   ImGui::End();
+}
+
+void SenderScene::apply_mouse_confinement()
+{
+  gui::framework::get_window().apply_mouse_confinement();
+  is_mouse_contained_ = true;
+}
+
+void SenderScene::release_mouse_confinement()
+{
+  gui::framework::get_window().release_mouse_confinement();
+  is_mouse_contained_ = false;
 }

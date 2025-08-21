@@ -13,6 +13,8 @@ public:
 
 private:
   void render() override;
+  void apply_mouse_confinement();
+  void release_mouse_confinement();
   bool is_mouse_contained_ = true;
   std::unique_ptr<flows::SenderFlow> flow_;
 };
