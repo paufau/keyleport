@@ -196,6 +196,11 @@ void HomeScene::render()
                 session->start_client(
                     [this, session]
                     {
+                      // Mark busy state in discovery when client handshaked (sender role)
+                      if (discovery_)
+                      {
+                        discovery_->set_state(net::p2p::State::Busy);
+                      }
                       std::cerr << "[p2p] Client handshake done; switching to SenderScene" << std::endl;
                       // Create a UDP sender targeting the peer using same IP and UDP port read from control channel
                       // later. For first iteration, assume server uses same TCP port for UDP. If server announces a UDP
