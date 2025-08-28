@@ -100,6 +100,10 @@ FetchContent_Declare(
 )
 FetchContent_Populate(enet)
 # Build ENet manually as a static lib to avoid upstream CMake policy issues
+set(ENET_PLATFORM_SRC ${enet_SOURCE_DIR}/unix.c)
+if(WIN32)
+  set(ENET_PLATFORM_SRC ${enet_SOURCE_DIR}/win32.c)
+endif()
 add_library(enet STATIC
   ${enet_SOURCE_DIR}/callbacks.c
   ${enet_SOURCE_DIR}/compress.c
@@ -108,12 +112,14 @@ add_library(enet STATIC
   ${enet_SOURCE_DIR}/packet.c
   ${enet_SOURCE_DIR}/peer.c
   ${enet_SOURCE_DIR}/protocol.c
-  ${enet_SOURCE_DIR}/unix.c
+  ${ENET_PLATFORM_SRC}
 )
 set_target_properties(enet PROPERTIES LINKER_LANGUAGE C LANGUAGE C)
 target_include_directories(enet PUBLIC ${enet_SOURCE_DIR}/include)
 if(APPLE OR UNIX)
   target_link_libraries(enet PUBLIC m)
+elseif(WIN32)
+  target_link_libraries(enet PUBLIC ws2_32 winmm)
 endif()
 target_link_libraries(keyleport PRIVATE enet)
 
