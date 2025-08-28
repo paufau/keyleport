@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.21)
-project(keyleport CXX)
+project(keyleport C CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 file(GLOB_RECURSE KEYLEPORT_SOURCES CONFIGURE_DEPENDS
   src/*.cpp
@@ -19,6 +21,9 @@ else()
   # On other platforms exclude both macOS and Windows specific trees
   list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/(macos|windows)/.*\\.cpp$")
 endif()
+
+# Exclude the UDP console demo main from the GUI app target
+list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/udp/main\\.cpp$")
 
 # Remove platform-specific networking folders; use cxx (Asio) implementation
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/server/(macos|windows)/.*\\.cpp$")
@@ -81,7 +86,33 @@ FetchContent_Declare(
   GIT_TAG v3.11.3
 )
 FetchContent_MakeAvailable(nlohmann_json)
-target_link_libraries(keyleport PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(keyleport PRIVATE nlohmann_json::nlohmann_json enet)
+
+# ENet (reliable/unreliable UDP library)
+include(FetchContent)
+FetchContent_Declare(
+  enet
+  GIT_REPOSITORY https://github.com/lsalzman/enet.git
+  GIT_TAG v1.3.17
+)
+FetchContent_Populate(enet)
+# Build ENet manually as a static lib to avoid upstream CMake policy issues
+add_library(enet STATIC
+  ${enet_SOURCE_DIR}/callbacks.c
+  ${enet_SOURCE_DIR}/compress.c
+  ${enet_SOURCE_DIR}/host.c
+  ${enet_SOURCE_DIR}/list.c
+  ${enet_SOURCE_DIR}/packet.c
+  ${enet_SOURCE_DIR}/peer.c
+  ${enet_SOURCE_DIR}/protocol.c
+  ${enet_SOURCE_DIR}/unix.c
+)
+set_target_properties(enet PROPERTIES LINKER_LANGUAGE C LANGUAGE C)
+target_include_directories(enet PUBLIC ${enet_SOURCE_DIR}/include)
+if(APPLE OR UNIX)
+  target_link_libraries(enet PUBLIC m)
+endif()
+target_link_libraries(keyleport PRIVATE enet)
 
 # Dear ImGui (core + optional SDL3 backend)
 option(IMGUI_BUILD_DEMO "Build Dear ImGui demo file" OFF)
