@@ -3,7 +3,7 @@
 #include "gui/framework/ui_window.h"
 #include "keyboard/input_event.h"
 #include "keyboard/keyboard.h"
-#include "networking/p2p/service.h"
+#include "networking/udp/app_net.h"
 #include "store.h"
 
 #include <imgui.h>
@@ -14,15 +14,11 @@ void ReceiverScene::didMount()
   kb_ = keyboard::make_keyboard();
   emitter_ = kb_ ? kb_->createEmitter() : nullptr;
 
-  // Subscribe to messages on the server-side session and emit them
+  // Subscribe to received data and emit as input events
   keyboard::Emitter* emitter_ptr = emitter_.get();
-  net::p2p::Service::instance().set_on_server_message(
-      [emitter_ptr](const std::string& payload)
-      {
-        if (!emitter_ptr || payload.empty())
-        {
-          return;
-        }
+  net::udp::app_net::instance().set_on_receive(
+      [emitter_ptr](const std::string& payload) {
+        if (!emitter_ptr || payload.empty()) return;
         auto ev = keyboard::InputEventJSONConverter::decode(payload);
         emitter_ptr->emit(ev);
       });
@@ -31,7 +27,7 @@ void ReceiverScene::didMount()
 void ReceiverScene::willUnmount()
 {
   // Stop receiving injections in this scene
-  net::p2p::Service::instance().set_on_server_message(nullptr);
+  net::udp::app_net::instance().set_on_receive(nullptr);
   emitter_.reset();
   kb_.reset();
 }

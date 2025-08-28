@@ -1,7 +1,7 @@
 #include "sender.h"
 
 #include "keyboard/input_event.h"
-#include "networking/p2p/service.h"
+#include "networking/udp/app_net.h"
 
 #include <atomic>
 #include <chrono>
@@ -15,12 +15,10 @@ namespace flows
 
   bool SenderFlow::start()
   {
-    // Use existing P2P service; ensure a session exists
-    auto c = net::p2p::Service::instance().client_session();
-    auto s = net::p2p::Service::instance().server_session();
-    if (!c && !s)
+    // Ensure a session exists in UDP stack
+    if (!net::udp::app_net::instance().has_active_session())
     {
-      std::cerr << "[sender] P2P session is not established" << std::endl;
+      std::cerr << "[sender] No active session" << std::endl;
       return false;
     }
 
@@ -50,7 +48,7 @@ namespace flows
     {
       scrollThread_.join();
     }
-    // nothing specific to disconnect; P2P Service manages the session lifecycle
+  // nothing specific to disconnect; session lifecycle managed by app_net
   }
 
   void SenderFlow::push_event(const keyboard::InputEvent& ev)
@@ -70,8 +68,8 @@ namespace flows
       return;
     }
     const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-    // Non-aggregated events: send mouse buttons/keys via TCP; moves/scrolls are aggregated and go via UDP
-    net::p2p::Service::instance().send_to_peer_tcp(payload);
+  // Non-aggregated events: send reliably (ENet reliable channel)
+  net::udp::app_net::instance().send_reliable(payload);
   }
 
   void SenderFlow::push_event(const SDL_Event& sdl_ev)
@@ -100,7 +98,7 @@ namespace flows
       mv.dx = dx;
       mv.dy = dy;
       const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
-      net::p2p::Service::instance().send_to_peer_udp(payload);
+  net::udp::app_net::instance().send_unreliable(payload);
     }
   }
 
@@ -124,7 +122,7 @@ namespace flows
       sc.dx = sx;
       sc.dy = sy;
       const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
-      net::p2p::Service::instance().send_to_peer_udp(payload);
+  net::udp::app_net::instance().send_unreliable(payload);
     }
   }
 

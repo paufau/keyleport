@@ -25,6 +25,9 @@ endif()
 # Exclude the UDP console demo main from the GUI app target
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/udp/main\\.cpp$")
 
+# Exclude legacy P2P stack sources (replaced by networking/udp)
+list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/p2p/.*\\.cpp$")
+
 # Remove platform-specific networking folders; use cxx (Asio) implementation
 list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/server/(macos|windows)/.*\\.cpp$")
 # Remove platform-specific discovery folders; use cxx implementation

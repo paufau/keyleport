@@ -23,12 +23,19 @@ udp_service::~udp_service()
   stop();
 }
 
-bool udp_service::start(int listen_port)
+bool udp_service::start(int listen_port, int broadcast_port)
 {
   if (running_.exchange(true))
     return true;
 
   listen_port_ = listen_port;
+  if (broadcast_port > 0) {
+    broadcast_port_ = broadcast_port;
+  } else if (listen_port_ > 0) {
+    broadcast_port_ = listen_port_ + 1;
+  } else {
+    broadcast_port_ = 33334; // default discovery port
+  }
 
   if (enet_initialize() == 0) {
     enet_inited_ = true;
@@ -45,8 +52,7 @@ bool udp_service::start(int listen_port)
   host_ = enet_host_create(&address, /* peers */ 32, /* channels */ 2, /* in bw */ 0, /* out bw */ 0);
   if (!host_) {
     std::cerr << "Failed to create ENet host" << std::endl;
-    running_ = false;
-    return false;
+    // We still allow discovery to run if broadcast sockets can bind.
   }
 
   // create broadcast sockets (send + recv)
@@ -60,16 +66,21 @@ bool udp_service::start(int listen_port)
   if (bcast_recv_sock_ >= 0) {
     int opt = 1;
     ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    #ifdef SO_REUSEPORT
+    ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+    #endif
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(static_cast<uint16_t>(listen_port_ == 0 ? 33333 : listen_port_));
+    addr.sin_port = htons(static_cast<uint16_t>(broadcast_port_));
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     if (bind(bcast_recv_sock_, (sockaddr*)&addr, sizeof(addr)) != 0) {
       std::cerr << "Broadcast recv bind failed" << std::endl;
     }
   }
 
-  service_thread_ = std::thread([this]{ run_service_loop_(); });
+  if (host_) {
+    service_thread_ = std::thread([this]{ run_service_loop_(); });
+  }
   broadcast_thread_ = std::thread([this]{ run_broadcast_recv_loop_(); });
   return true;
 }
@@ -115,7 +126,9 @@ void udp_service::run_service_loop_()
             peers_[make_key(addr, port)] = event.peer;
             // ensure we have a wrapper for this peer
             if (peer_wrappers_.find(event.peer) == peer_wrappers_.end()) {
-              peer_wrappers_[event.peer] = std::make_shared<peer_connection>(this, event.peer);
+              auto pc = std::make_shared<peer_connection>(this, event.peer);
+              peer_wrappers_[event.peer] = pc;
+              on_new_peer.emit(pc);
             }
           }
           on_connect.emit(network_event_connect{addr, port});
@@ -135,7 +148,15 @@ void udp_service::run_service_loop_()
             {
               std::lock_guard<std::mutex> lock(peers_mutex_);
               auto itp = peer_wrappers_.find(event.peer);
-              if (itp != peer_wrappers_.end()) pc = itp->second;
+              if (itp != peer_wrappers_.end()) {
+                pc = itp->second;
+              } else {
+                // create wrapper lazily if missing
+                auto created = std::make_shared<peer_connection>(this, event.peer);
+                peer_wrappers_[event.peer] = created;
+                on_new_peer.emit(created);
+                pc = created;
+              }
             }
             if (pc) {
               pc->on_receive_data.emit(network_event_data{data, from, port});
@@ -195,7 +216,7 @@ void udp_service::broadcast(const std::string& data)
   std::string payload = std::string("BCAST:") + data;
   sockaddr_in addr{};
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(static_cast<uint16_t>(listen_port_ == 0 ? 33333 : listen_port_));
+  addr.sin_port = htons(static_cast<uint16_t>(broadcast_port_));
   addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
   ::sendto(bcast_send_sock_, payload.data(), static_cast<int>(payload.size()), 0, (sockaddr*)&addr, sizeof(addr));
 }

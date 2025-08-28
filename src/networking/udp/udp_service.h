@@ -35,7 +35,9 @@ public:
   udp_service(const udp_service&) = delete;
   udp_service& operator=(const udp_service&) = delete;
 
-  bool start(int listen_port = 0);
+  // listen_port: ENet host port for data plane.
+  // broadcast_port: UDP port used for LAN discovery broadcasts (defaults to listen_port+1 or 33334).
+  bool start(int listen_port = 0, int broadcast_port = 0);
   void stop();
 
   // Broadcast a small discovery payload on the local subnet.
@@ -52,6 +54,8 @@ public:
   event_emitter<network_event_broadcast> on_receive_broadcast;
   event_emitter<network_event_connect> on_connect;
   event_emitter<network_event_disconnect> on_disconnect;
+  // Emitted whenever a peer_connection wrapper is created for a connected peer
+  event_emitter<std::shared_ptr<peer_connection>> on_new_peer;
 
 private:
   void run_service_loop_();
@@ -61,6 +65,7 @@ private:
   std::thread service_thread_;
   std::thread broadcast_thread_;
   int listen_port_{0};
+  int broadcast_port_{0};
 
   // ENet host for connections and data
   bool enet_inited_{false};
