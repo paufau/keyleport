@@ -3,11 +3,17 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#ifdef _WIN32
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#  pragma comment(lib, "ws2_32.lib")
+#else
+#  include <sys/types.h>
+#  include <sys/socket.h>
+#  include <netinet/in.h>
+#  include <arpa/inet.h>
+#  include <unistd.h>
+#endif
 
 namespace net { namespace udp {
 
@@ -45,6 +51,15 @@ bool udp_service::start(int listen_port, int broadcast_port)
     return false;
   }
 
+#ifdef _WIN32
+  WSADATA wsaData;
+  if (WSAStartup(MAKEWORD(2,2), &wsaData) == 0) {
+    wsa_inited_ = true;
+  } else {
+    std::cerr << "WSAStartup failed" << std::endl;
+  }
+#endif
+
   ENetAddress address;
   address.host = ENET_HOST_ANY;
   address.port = static_cast<enet_uint16>(listen_port_);
@@ -57,17 +72,25 @@ bool udp_service::start(int listen_port, int broadcast_port)
 
   // create broadcast sockets (send + recv)
   bcast_send_sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
+#ifdef _WIN32
+  if (bcast_send_sock_ != INVALID_SOCKET) {
+#else
   if (bcast_send_sock_ >= 0) {
+#endif
     int opt = 1;
-    ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(opt));
+    ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
   }
 
   bcast_recv_sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
+#ifdef _WIN32
+  if (bcast_recv_sock_ != INVALID_SOCKET) {
+#else
   if (bcast_recv_sock_ >= 0) {
+#endif
     int opt = 1;
-    ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
     #ifdef SO_REUSEPORT
-    ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+    ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt, sizeof(opt));
     #endif
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
@@ -93,8 +116,13 @@ void udp_service::stop()
   if (broadcast_thread_.joinable()) broadcast_thread_.join();
 
   // close sockets
+  #ifdef _WIN32
+  if (bcast_send_sock_ != INVALID_SOCKET) { ::closesocket(bcast_send_sock_); bcast_send_sock_ = INVALID_SOCKET; }
+  if (bcast_recv_sock_ != INVALID_SOCKET) { ::closesocket(bcast_recv_sock_); bcast_recv_sock_ = INVALID_SOCKET; }
+  #else
   if (bcast_send_sock_ >= 0) { ::close(bcast_send_sock_); bcast_send_sock_ = -1; }
   if (bcast_recv_sock_ >= 0) { ::close(bcast_recv_sock_); bcast_recv_sock_ = -1; }
+  #endif
 
   if (host_) {
     enet_host_destroy(host_);
@@ -104,6 +132,10 @@ void udp_service::stop()
     enet_deinitialize();
     enet_inited_ = false;
   }
+
+#ifdef _WIN32
+  if (wsa_inited_) { WSACleanup(); wsa_inited_ = false; }
+#endif
 }
 
 void udp_service::run_service_loop_()
@@ -196,7 +228,11 @@ void udp_service::run_broadcast_recv_loop_()
     }
     sockaddr_in from{};
     socklen_t fromlen = sizeof(from);
-    int n = ::recvfrom(bcast_recv_sock_, buf.data(), static_cast<int>(buf.size()), MSG_DONTWAIT, (sockaddr*)&from, &fromlen);
+  int flags = 0;
+#ifndef _WIN32
+  flags = MSG_DONTWAIT;
+#endif
+  int n = ::recvfrom(bcast_recv_sock_, buf.data(), static_cast<int>(buf.size()), flags, (sockaddr*)&from, &fromlen);
     if (n > 0) {
       std::string payload(buf.data(), buf.data() + n);
       if (payload.rfind("BCAST:", 0) == 0) {
@@ -212,7 +248,11 @@ void udp_service::run_broadcast_recv_loop_()
 
 void udp_service::broadcast(const std::string& data)
 {
+  #ifdef _WIN32
+  if (!running_ || bcast_send_sock_ == INVALID_SOCKET) return;
+  #else
   if (!running_ || bcast_send_sock_ < 0) return;
+  #endif
   std::string payload = std::string("BCAST:") + data;
   sockaddr_in addr{};
   addr.sin_family = AF_INET;

@@ -13,6 +13,15 @@
 
 #include <enet/enet.h>
 
+// Platform socket type
+#ifdef _WIN32
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+using socket_t = SOCKET;
+#else
+using socket_t = int;
+#endif
+
 #include "networking/udp/event_emitter.h"
 #include "networking/udp/peer_connection.h"
 #include "networking/udp/events.h"
@@ -78,9 +87,25 @@ private:
   std::unordered_map<ENetPeer*, std::shared_ptr<peer_connection>> peer_wrappers_;
   // optional weak map of live peer_connection wrappers can be added later
 
-  // POSIX UDP sockets for broadcast send/receive
-  int bcast_send_sock_{-1};
-  int bcast_recv_sock_{-1};
+  // UDP sockets for broadcast send/receive
+  socket_t bcast_send_sock_
+#ifdef _WIN32
+    {INVALID_SOCKET}
+#else
+    {-1}
+#endif
+  ;
+  socket_t bcast_recv_sock_
+#ifdef _WIN32
+    {INVALID_SOCKET}
+#else
+    {-1}
+#endif
+  ;
+
+#ifdef _WIN32
+  bool wsa_inited_{false};
+#endif
 };
 
 }} // namespace net::udp
