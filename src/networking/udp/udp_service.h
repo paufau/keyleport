@@ -62,6 +62,10 @@ namespace net
       // Flush pending ENet sends (used by peer_connection)
       void flush();
 
+  // Introspection
+  int enet_port() const { return listen_port_; }
+  int discovery_broadcast_port() const { return broadcast_port_; }
+
       // Events
       event_emitter<network_event_broadcast> on_receive_broadcast;
       event_emitter<network_event_connect> on_connect;

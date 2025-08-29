@@ -86,6 +86,12 @@ namespace net
         std::cerr << "Failed to create ENet host" << std::endl;
         // We still allow discovery to run if broadcast sockets can bind.
       }
+      else
+      {
+        // If we asked for an ephemeral port (0), query the assigned port
+        ENetAddress bound = host_->address;
+        listen_port_ = static_cast<int>(bound.port);
+      }
 
       // create broadcast sockets (send + recv)
       bcast_send_sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);

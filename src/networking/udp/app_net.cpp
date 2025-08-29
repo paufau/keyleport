@@ -26,8 +26,9 @@ namespace net
         net_.stop();
         return false;
       }
-      discovery_ = std::make_unique<discovery_service>(net_);
-      discovery_->start_discovery(bcast_port);
+  discovery_ = std::make_unique<discovery_service>(net_);
+  // Announce the actual ENet port (which may be ephemeral if 0 was requested)
+  discovery_->start_discovery(net_.enet_port());
       // Accept inbound connections
       net_.on_connect.subscribe([this](const network_event_connect& ev) { handle_incoming_connect_(ev); });
       // Adopt inbound peer connections as the active session if we're idle
