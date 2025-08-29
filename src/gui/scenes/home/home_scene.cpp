@@ -22,7 +22,7 @@ void HomeScene::didMount()
   auto& appnet = net::udp::app_net::instance();
 
   // Update store on peer discovery
-  appnet.on_discovery().subscribe(
+  discovery_sub_id_ = appnet.on_discovery().subscribe(
       [this](const net::udp::peer_info& p)
       {
         auto& devices = store::connection_state().available_devices.get();
@@ -44,7 +44,7 @@ void HomeScene::didMount()
         }
       });
 
-  appnet.on_lose().subscribe(
+  lose_sub_id_ = appnet.on_lose().subscribe(
       [this](const net::udp::peer_info& p)
       {
         auto& devices = store::connection_state().available_devices.get();
@@ -56,7 +56,7 @@ void HomeScene::didMount()
       });
 
   // Auto-enter ReceiverScene on inbound session start
-  appnet.on_session_start().subscribe(
+  session_start_sub_id_ = appnet.on_session_start().subscribe(
       [](const net::udp::peer_info& p)
       {
         // If we didn't initiate connect from this UI, this indicates an inbound session.
@@ -131,7 +131,22 @@ void HomeScene::render()
 
 void HomeScene::willUnmount()
 {
-  // Nothing to do; P2P runtime persists across scenes.
+  auto& appnet = net::udp::app_net::instance();
+  if (discovery_sub_id_)
+  {
+    appnet.on_discovery().unsubscribe(discovery_sub_id_);
+    discovery_sub_id_ = 0;
+  }
+  if (lose_sub_id_)
+  {
+    appnet.on_lose().unsubscribe(lose_sub_id_);
+    lose_sub_id_ = 0;
+  }
+  if (session_start_sub_id_)
+  {
+    appnet.on_session_start().unsubscribe(session_start_sub_id_);
+    session_start_sub_id_ = 0;
+  }
 }
 
 HomeScene::~HomeScene()
