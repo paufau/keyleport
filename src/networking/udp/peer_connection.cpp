@@ -15,39 +15,29 @@ namespace net
 
     void peer_connection::send_reliable(const std::string& data)
     {
-      if (!peer_)
+      if (!peer_ || !service_)
       {
         return;
       }
-      ENetPacket* pkt = enet_packet_create(data.data(), data.size(), ENET_PACKET_FLAG_RELIABLE);
-      enet_peer_send(reinterpret_cast<ENetPeer*>(peer_), /* channel */ 0, pkt);
-      if (service_)
-      {
-        service_->flush();
-      }
+      service_->send_reliable_packet(peer_, data);
     }
 
     void peer_connection::send_unreliable(const std::string& data)
     {
-      if (!peer_)
+      if (!peer_ || !service_)
       {
         return;
       }
-      ENetPacket* pkt = enet_packet_create(data.data(), data.size(), 0);
-      enet_peer_send(reinterpret_cast<ENetPeer*>(peer_), /* channel */ 1, pkt);
-      if (service_)
-      {
-        service_->flush();
-      }
+      service_->send_unreliable_packet(peer_, data);
     }
 
     void peer_connection::disconnect()
     {
-      if (!peer_)
+      if (!peer_ || !service_)
       {
         return;
       }
-      enet_peer_disconnect(reinterpret_cast<ENetPeer*>(peer_), 0);
+      service_->disconnect_peer(peer_);
     }
 
     std::string peer_connection::address() const

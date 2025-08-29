@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 // Platform socket type
 #ifdef _WIN32
@@ -73,9 +74,15 @@ namespace net
       // Emitted whenever a peer_connection wrapper is created for a connected peer
       event_emitter<std::shared_ptr<peer_connection>> on_new_peer;
 
+  // Thread-safe wrappers for ENet operations used by peer_connection
+  void send_reliable_packet(_ENetPeer* peer, const std::string& data);
+  void send_unreliable_packet(_ENetPeer* peer, const std::string& data);
+  void disconnect_peer(_ENetPeer* peer);
+
     private:
       void run_service_loop_();
       void run_broadcast_recv_loop_();
+  void compute_broadcast_targets_();
 
       std::atomic<bool> running_{false};
       std::thread service_thread_;
@@ -86,6 +93,7 @@ namespace net
       // ENet host for connections and data
       bool enet_inited_{false};
       ENetHost* host_{nullptr};
+  mutable std::mutex host_mutex_;
 
       // Maintain peers map (key "ip:port" -> ENetPeer*)
       std::unordered_map<std::string, ENetPeer*> peers_;
@@ -109,6 +117,9 @@ namespace net
           {-1}
 #endif
       ;
+
+  // List of broadcast targets (255.255.255.255 and per-interface directed broadcast)
+  std::vector<sockaddr_in> bcast_targets_;
 
 #ifdef _WIN32
       bool wsa_inited_{false};

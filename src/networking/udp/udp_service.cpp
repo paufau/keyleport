@@ -9,6 +9,8 @@
 #pragma comment(lib, "ws2_32.lib")
 #else
 #include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -102,8 +104,20 @@ namespace net
       if (bcast_send_sock_ >= 0)
       {
 #endif
-        int opt = 1;
-        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
+  int opt = 1;
+  ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
+#ifdef SO_REUSEADDR
+  ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+#endif
+#ifdef SO_REUSEPORT
+  ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt, sizeof(opt));
+#endif
+  // Bind send socket to INADDR_ANY to ensure consistent broadcast behavior on some OSes
+  sockaddr_in saddr{};
+  saddr.sin_family = AF_INET;
+  saddr.sin_port = htons(0);
+  saddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  ::bind(bcast_send_sock_, (sockaddr*)&saddr, sizeof(saddr));
       }
 
       bcast_recv_sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
@@ -133,7 +147,9 @@ namespace net
       {
         service_thread_ = std::thread([this] { run_service_loop_(); });
       }
-      broadcast_thread_ = std::thread([this] { run_broadcast_recv_loop_(); });
+  broadcast_thread_ = std::thread([this] { run_broadcast_recv_loop_(); });
+  // Prepare list of broadcast targets (limited + directed)
+  compute_broadcast_targets_();
       return true;
     }
 
@@ -177,10 +193,13 @@ namespace net
       }
 #endif
 
-      if (host_)
       {
-        enet_host_destroy(host_);
-        host_ = nullptr;
+        std::lock_guard<std::mutex> lock(host_mutex_);
+        if (host_)
+        {
+          enet_host_destroy(host_);
+          host_ = nullptr;
+        }
       }
       if (enet_inited_)
       {
@@ -202,7 +221,12 @@ namespace net
       while (running_)
       {
         ENetEvent event;
-        while (enet_host_service(host_, &event, 10) > 0)
+        ENetHost* local_host = nullptr;
+        {
+          std::lock_guard<std::mutex> lock(host_mutex_);
+          local_host = host_;
+        }
+        while (local_host && enet_host_service(local_host, &event, 10) > 0)
         {
           switch (event.type)
           {
@@ -345,11 +369,64 @@ namespace net
       }
 #endif
       std::string payload = std::string("BCAST:") + data;
-      sockaddr_in addr{};
-      addr.sin_family = AF_INET;
-      addr.sin_port = htons(static_cast<uint16_t>(broadcast_port_));
-      addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-      ::sendto(bcast_send_sock_, payload.data(), static_cast<int>(payload.size()), 0, (sockaddr*)&addr, sizeof(addr));
+      if (bcast_targets_.empty())
+      {
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(static_cast<uint16_t>(broadcast_port_));
+        addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+        ::sendto(bcast_send_sock_, payload.data(), static_cast<int>(payload.size()), 0, (sockaddr*)&addr,
+                 sizeof(addr));
+        return;
+      }
+      for (auto target : bcast_targets_)
+      {
+        target.sin_port = htons(static_cast<uint16_t>(broadcast_port_));
+        ::sendto(bcast_send_sock_, payload.data(), static_cast<int>(payload.size()), 0,
+                 reinterpret_cast<const sockaddr*>(&target), sizeof(target));
+      }
+    }
+
+    void udp_service::compute_broadcast_targets_()
+    {
+      bcast_targets_.clear();
+      // Always include limited broadcast
+      sockaddr_in lb{};
+      lb.sin_family = AF_INET;
+      lb.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+      bcast_targets_.push_back(lb);
+#ifndef _WIN32
+      // Add directed broadcasts per non-loopback IPv4 interface
+      ifaddrs* ifaddr = nullptr;
+      if (getifaddrs(&ifaddr) == 0 && ifaddr)
+      {
+        for (ifaddrs* ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next)
+        {
+          if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET)
+          {
+            continue;
+          }
+          if ((ifa->ifa_flags & IFF_LOOPBACK) || !(ifa->ifa_flags & IFF_BROADCAST))
+          {
+            continue;
+          }
+          auto* a = reinterpret_cast<sockaddr_in*>(ifa->ifa_addr);
+          auto* m = reinterpret_cast<sockaddr_in*>(ifa->ifa_netmask);
+          if (!a || !m)
+          {
+            continue;
+          }
+          uint32_t ip = ntohl(a->sin_addr.s_addr);
+          uint32_t mask = ntohl(m->sin_addr.s_addr);
+          uint32_t bcast = (ip & mask) | (~mask);
+          sockaddr_in b{};
+          b.sin_family = AF_INET;
+          b.sin_addr.s_addr = htonl(bcast);
+          bcast_targets_.push_back(b);
+        }
+        freeifaddrs(ifaddr);
+      }
+#endif
     }
 
     peer_connection_ptr udp_service::connect_to(const std::string& address, int port)
@@ -380,10 +457,55 @@ namespace net
 
     void udp_service::flush()
     {
+      std::lock_guard<std::mutex> lock(host_mutex_);
       if (host_)
       {
         enet_host_flush(host_);
       }
+    }
+
+    void udp_service::send_reliable_packet(_ENetPeer* peer, const std::string& data)
+    {
+      if (!peer)
+      {
+        return;
+      }
+      ENetPacket* pkt = enet_packet_create(data.data(), data.size(), ENET_PACKET_FLAG_RELIABLE);
+      {
+        std::lock_guard<std::mutex> lock(host_mutex_);
+        enet_peer_send(reinterpret_cast<ENetPeer*>(peer), 0, pkt);
+        if (host_)
+        {
+          enet_host_flush(host_);
+        }
+      }
+    }
+
+    void udp_service::send_unreliable_packet(_ENetPeer* peer, const std::string& data)
+    {
+      if (!peer)
+      {
+        return;
+      }
+      ENetPacket* pkt = enet_packet_create(data.data(), data.size(), 0);
+      {
+        std::lock_guard<std::mutex> lock(host_mutex_);
+        enet_peer_send(reinterpret_cast<ENetPeer*>(peer), 1, pkt);
+        if (host_)
+        {
+          enet_host_flush(host_);
+        }
+      }
+    }
+
+    void udp_service::disconnect_peer(_ENetPeer* peer)
+    {
+      if (!peer)
+      {
+        return;
+      }
+      std::lock_guard<std::mutex> lock(host_mutex_);
+      enet_peer_disconnect(reinterpret_cast<ENetPeer*>(peer), 0);
     }
 
   } // namespace udp
