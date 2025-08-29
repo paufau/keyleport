@@ -2,8 +2,8 @@
 
 #include "service.h"
 
-#include <random>
 #include <iostream>
+#include <random>
 
 namespace
 {
@@ -19,7 +19,7 @@ namespace
                   (unsigned long long)(b >> 32));
     return std::string(buf);
   }
-}
+} // namespace
 
 namespace net
 {
@@ -34,7 +34,9 @@ namespace net
     void Runtime::start()
     {
       if (io_)
+      {
         return; // already started
+      }
 
       io_.reset(new asio::io_context());
       instance_id_ = gen_id();
@@ -57,7 +59,9 @@ namespace net
     void Runtime::start_accepting()
     {
       if (!session_server_)
+      {
         return;
+      }
 
       session_server_->async_accept(
           [this](std::shared_ptr<Session> s)
@@ -108,7 +112,9 @@ namespace net
     void Runtime::stop()
     {
       if (!io_)
+      {
         return;
+      }
 
       if (discovery_)
       {
@@ -119,9 +125,13 @@ namespace net
       if (io_thread_.joinable())
       {
         if (std::this_thread::get_id() == io_thread_.get_id())
+        {
           io_thread_.detach();
+        }
         else
+        {
           io_thread_.join();
+        }
       }
 
       Service::instance().stop();

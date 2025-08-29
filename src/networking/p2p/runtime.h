@@ -5,9 +5,9 @@
 #include "service.h"
 
 #include <asio.hpp>
+#include <functional>
 #include <memory>
 #include <thread>
-#include <functional>
 
 namespace net
 {
@@ -31,12 +31,12 @@ namespace net
 
       uint16_t session_port() const;
 
-  // Forward DiscoveryServer handlers
-  void set_on_peer_update(DiscoveryServer::PeerUpdateHandler cb);
-  void set_on_peer_remove(DiscoveryServer::PeerRemoveHandler cb);
+      // Forward DiscoveryServer handlers
+      void set_on_peer_update(DiscoveryServer::PeerUpdateHandler cb);
+      void set_on_peer_remove(DiscoveryServer::PeerRemoveHandler cb);
 
-  // Notify UI when an incoming server session handshake completes
-  void set_on_server_ready(std::function<void(const std::string& ip, const std::string& port)> cb);
+      // Notify UI when an incoming server session handshake completes
+      void set_on_server_ready(std::function<void(const std::string& ip, const std::string& port)> cb);
 
     private:
       Runtime() = default;
@@ -53,7 +53,7 @@ namespace net
       std::string instance_id_;
       uint64_t boot_id_ = 1;
 
-  std::function<void(const std::string&, const std::string&)> on_server_ready_;
+      std::function<void(const std::string&, const std::string&)> on_server_ready_;
     };
   } // namespace p2p
 } // namespace net

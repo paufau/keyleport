@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gui/framework/ui_scene.h"
+
 #include <memory>
 #include <thread>
 

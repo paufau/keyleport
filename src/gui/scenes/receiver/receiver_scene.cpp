@@ -17,8 +17,12 @@ void ReceiverScene::didMount()
   // Subscribe to received data and emit as input events
   keyboard::Emitter* emitter_ptr = emitter_.get();
   net::udp::app_net::instance().set_on_receive(
-      [emitter_ptr](const std::string& payload) {
-        if (!emitter_ptr || payload.empty()) return;
+      [emitter_ptr](const std::string& payload)
+      {
+        if (!emitter_ptr || payload.empty())
+        {
+          return;
+        }
         auto ev = keyboard::InputEventJSONConverter::decode(payload);
         emitter_ptr->emit(ev);
       });

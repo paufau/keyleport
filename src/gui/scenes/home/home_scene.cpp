@@ -34,9 +34,16 @@ void HomeScene::didMount()
         auto it = std::find_if(devices.begin(), devices.end(), [&](const entities::ConnectionCandidate& d)
                                { return d.ip() == ip && d.port() == port; });
         entities::ConnectionCandidate cc(busy, name, ip, port);
-        if (it == devices.end()) devices.push_back(cc);
-        else *it = cc;
+        if (it == devices.end())
+        {
+          devices.push_back(cc);
+        }
+        else
+        {
+          *it = cc;
+        }
       });
+
   appnet.on_lose().subscribe(
       [this](const net::udp::peer_info& p)
       {
@@ -48,7 +55,13 @@ void HomeScene::didMount()
                       devices.end());
       });
 
-  // ReceiverScene is entered explicitly elsewhere when acting as a receiver.
+  // Auto-enter ReceiverScene on inbound session start
+  appnet.on_session_start().subscribe(
+      [](const net::udp::peer_info& p)
+      {
+        // If we didn't initiate connect from this UI, this indicates an inbound session.
+        gui::framework::post_to_ui([] { gui::framework::set_window_scene<ReceiverScene>(); });
+      });
 }
 
 void HomeScene::render()
@@ -103,7 +116,7 @@ void HomeScene::render()
         peer.device_name = d.name();
         peer.ip_address = d.ip();
         peer.port = std::stoi(d.port());
-  net::udp::app_net::instance().connect_to_peer(peer);
+        net::udp::app_net::instance().connect_to_peer(peer);
         gui::framework::post_to_ui([] { gui::framework::set_window_scene<SenderScene>(); });
       }
       ImGui::EndDisabled();

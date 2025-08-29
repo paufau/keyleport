@@ -3,33 +3,42 @@
 
 #pragma once
 
-#include <string>
-#include <optional>
-
-#include "networking/udp/event_emitter.h"
 #include "networking/udp/discovery_service.h"
-#include "networking/udp/udp_service.h"
+#include "networking/udp/event_emitter.h"
 #include "networking/udp/peer_connection.h"
+#include "networking/udp/udp_service.h"
 
-namespace net { namespace udp {
+#include <optional>
+#include <string>
 
-enum class session_state { idle, busy };
+namespace net
+{
+  namespace udp
+  {
 
-class global_session_service {
-public:
-  explicit global_session_service(udp_service& net);
+    enum class session_state
+    {
+      idle,
+      busy
+    };
 
-  void connect_to_peer(const peer_info& peer);
-  void disconnect();
-  session_state get_current_state() const;
+    class global_session_service
+    {
+    public:
+      explicit global_session_service(udp_service& net);
 
-  event_emitter<peer_info> on_session_start;
-  event_emitter<peer_info> on_session_end;
+      void connect_to_peer(const peer_info& peer);
+      void disconnect();
+      session_state get_current_state() const;
 
-private:
-  udp_service& net_;
-  std::optional<peer_info> current_;
-  peer_connection_ptr current_conn_;
-};
+      event_emitter<peer_info> on_session_start;
+      event_emitter<peer_info> on_session_end;
 
-}} // namespace net::udp
+    private:
+      udp_service& net_;
+      std::optional<peer_info> current_;
+      peer_connection_ptr current_conn_;
+    };
+
+  } // namespace udp
+} // namespace net

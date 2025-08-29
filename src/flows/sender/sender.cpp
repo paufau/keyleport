@@ -48,7 +48,7 @@ namespace flows
     {
       scrollThread_.join();
     }
-  // nothing specific to disconnect; session lifecycle managed by app_net
+    // nothing specific to disconnect; session lifecycle managed by app_net
   }
 
   void SenderFlow::push_event(const keyboard::InputEvent& ev)
@@ -68,8 +68,8 @@ namespace flows
       return;
     }
     const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-  // Non-aggregated events: send reliably (ENet reliable channel)
-  net::udp::app_net::instance().send_reliable(payload);
+    // Non-aggregated events: send reliably (ENet reliable channel)
+    net::udp::app_net::instance().send_reliable(payload);
   }
 
   void SenderFlow::push_event(const SDL_Event& sdl_ev)
@@ -98,7 +98,7 @@ namespace flows
       mv.dx = dx;
       mv.dy = dy;
       const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
-  net::udp::app_net::instance().send_unreliable(payload);
+      net::udp::app_net::instance().send_unreliable(payload);
     }
   }
 
@@ -122,7 +122,7 @@ namespace flows
       sc.dx = sx;
       sc.dy = sy;
       const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
-  net::udp::app_net::instance().send_unreliable(payload);
+      net::udp::app_net::instance().send_unreliable(payload);
     }
   }
 
