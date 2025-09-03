@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "utils/event_emitter/event_emitter.h"
 #include "networking/udp/peer_info.h"
 #include "networking/udp/udp_service.h"
+#include "utils/event_emitter/event_emitter.h"
 
 #include <atomic>
 #include <chrono>

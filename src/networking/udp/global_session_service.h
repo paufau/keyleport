@@ -4,9 +4,9 @@
 #pragma once
 
 #include "networking/udp/discovery_service.h"
-#include "utils/event_emitter/event_emitter.h"
 #include "networking/udp/peer_connection.h"
 #include "networking/udp/udp_service.h"
+#include "utils/event_emitter/event_emitter.h"
 
 #include <optional>
 #include <string>

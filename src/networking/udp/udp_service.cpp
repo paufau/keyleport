@@ -104,20 +104,20 @@ namespace net
       if (bcast_send_sock_ >= 0)
       {
 #endif
-  int opt = 1;
-  ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
+        int opt = 1;
+        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
 #ifdef SO_REUSEADDR
-  ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 #endif
 #ifdef SO_REUSEPORT
-  ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt, sizeof(opt));
+        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt, sizeof(opt));
 #endif
-  // Bind send socket to INADDR_ANY to ensure consistent broadcast behavior on some OSes
-  sockaddr_in saddr{};
-  saddr.sin_family = AF_INET;
-  saddr.sin_port = htons(0);
-  saddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  ::bind(bcast_send_sock_, (sockaddr*)&saddr, sizeof(saddr));
+        // Bind send socket to INADDR_ANY to ensure consistent broadcast behavior on some OSes
+        sockaddr_in saddr{};
+        saddr.sin_family = AF_INET;
+        saddr.sin_port = htons(0);
+        saddr.sin_addr.s_addr = htonl(INADDR_ANY);
+        ::bind(bcast_send_sock_, (sockaddr*)&saddr, sizeof(saddr));
       }
 
       bcast_recv_sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
@@ -147,9 +147,9 @@ namespace net
       {
         service_thread_ = std::thread([this] { run_service_loop_(); });
       }
-  broadcast_thread_ = std::thread([this] { run_broadcast_recv_loop_(); });
-  // Prepare list of broadcast targets (limited + directed)
-  compute_broadcast_targets_();
+      broadcast_thread_ = std::thread([this] { run_broadcast_recv_loop_(); });
+      // Prepare list of broadcast targets (limited + directed)
+      compute_broadcast_targets_();
       return true;
     }
 
@@ -375,8 +375,7 @@ namespace net
         addr.sin_family = AF_INET;
         addr.sin_port = htons(static_cast<uint16_t>(broadcast_port_));
         addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-        ::sendto(bcast_send_sock_, payload.data(), static_cast<int>(payload.size()), 0, (sockaddr*)&addr,
-                 sizeof(addr));
+        ::sendto(bcast_send_sock_, payload.data(), static_cast<int>(payload.size()), 0, (sockaddr*)&addr, sizeof(addr));
         return;
       }
       for (auto target : bcast_targets_)

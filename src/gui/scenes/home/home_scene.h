@@ -3,7 +3,6 @@
 #include "gui/framework/ui_scene.h"
 
 #include <cstdint>
-
 #include <memory>
 #include <thread>
 

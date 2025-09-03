@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "utils/event_emitter/event_emitter.h"
 #include "networking/udp/events.h"
+#include "utils/event_emitter/event_emitter.h"
 
 #include <memory>
 #include <string>

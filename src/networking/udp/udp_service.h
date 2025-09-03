@@ -22,9 +22,9 @@ using socket_t = SOCKET;
 using socket_t = int;
 #endif
 
-#include "utils/event_emitter/event_emitter.h"
 #include "networking/udp/events.h"
 #include "networking/udp/peer_connection.h"
+#include "utils/event_emitter/event_emitter.h"
 
 namespace net
 {
@@ -63,9 +63,9 @@ namespace net
       // Flush pending ENet sends (used by peer_connection)
       void flush();
 
-  // Introspection
-  int enet_port() const { return listen_port_; }
-  int discovery_broadcast_port() const { return broadcast_port_; }
+      // Introspection
+      int enet_port() const { return listen_port_; }
+      int discovery_broadcast_port() const { return broadcast_port_; }
 
       // Events
       event_emitter<network_event_broadcast> on_receive_broadcast;
@@ -74,15 +74,15 @@ namespace net
       // Emitted whenever a peer_connection wrapper is created for a connected peer
       event_emitter<std::shared_ptr<peer_connection>> on_new_peer;
 
-  // Thread-safe wrappers for ENet operations used by peer_connection
-  void send_reliable_packet(_ENetPeer* peer, const std::string& data);
-  void send_unreliable_packet(_ENetPeer* peer, const std::string& data);
-  void disconnect_peer(_ENetPeer* peer);
+      // Thread-safe wrappers for ENet operations used by peer_connection
+      void send_reliable_packet(_ENetPeer* peer, const std::string& data);
+      void send_unreliable_packet(_ENetPeer* peer, const std::string& data);
+      void disconnect_peer(_ENetPeer* peer);
 
     private:
       void run_service_loop_();
       void run_broadcast_recv_loop_();
-  void compute_broadcast_targets_();
+      void compute_broadcast_targets_();
 
       std::atomic<bool> running_{false};
       std::thread service_thread_;
@@ -93,7 +93,7 @@ namespace net
       // ENet host for connections and data
       bool enet_inited_{false};
       ENetHost* host_{nullptr};
-  mutable std::mutex host_mutex_;
+      mutable std::mutex host_mutex_;
 
       // Maintain peers map (key "ip:port" -> ENetPeer*)
       std::unordered_map<std::string, ENetPeer*> peers_;
@@ -118,8 +118,8 @@ namespace net
 #endif
       ;
 
-  // List of broadcast targets (255.255.255.255 and per-interface directed broadcast)
-  std::vector<sockaddr_in> bcast_targets_;
+      // List of broadcast targets (255.255.255.255 and per-interface directed broadcast)
+      std::vector<sockaddr_in> bcast_targets_;
 
 #ifdef _WIN32
       bool wsa_inited_{false};

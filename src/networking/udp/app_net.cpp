@@ -26,30 +26,34 @@ namespace net
         net_.stop();
         return false;
       }
-  discovery_ = std::make_unique<discovery_service>(net_);
-  // Announce the actual ENet port (which may be ephemeral if 0 was requested)
-  discovery_->start_discovery(net_.enet_port());
+      discovery_ = std::make_unique<discovery_service>(net_);
+      // Announce the actual ENet port (which may be ephemeral if 0 was requested)
+      discovery_->start_discovery(net_.enet_port());
       // Accept inbound connections
       net_.on_connect.subscribe([this](const network_event_connect& ev) { handle_incoming_connect_(ev); });
       // Adopt inbound peer connections as the active session if we're idle
-      net_.on_new_peer.subscribe([this](const std::shared_ptr<peer_connection>& pc) {
-        std::lock_guard<std::mutex> lock(mtx_);
-        if (current_conn_) {
-          return; // already have an active (likely outbound) session
-        }
-        if (!pc) {
-          return;
-        }
-        peer_info peer{};
-        peer.device_id = pc->address() + ":" + std::to_string(pc->port());
-        peer.device_name = ""; // unknown; can be enriched from discovery later
-        peer.ip_address = pc->address();
-        peer.port = pc->port();
-        current_conn_ = pc;
-        current_peer_ = peer;
-        bind_receive_handler_();
-        on_session_start_.emit(peer);
-      });
+      net_.on_new_peer.subscribe(
+          [this](const std::shared_ptr<peer_connection>& pc)
+          {
+            std::lock_guard<std::mutex> lock(mtx_);
+            if (current_conn_)
+            {
+              return; // already have an active (likely outbound) session
+            }
+            if (!pc)
+            {
+              return;
+            }
+            peer_info peer{};
+            peer.device_id = pc->address() + ":" + std::to_string(pc->port());
+            peer.device_name = ""; // unknown; can be enriched from discovery later
+            peer.ip_address = pc->address();
+            peer.port = pc->port();
+            current_conn_ = pc;
+            current_peer_ = peer;
+            bind_receive_handler_();
+            on_session_start_.emit(peer);
+          });
       return true;
     }
 
@@ -103,7 +107,7 @@ namespace net
       current_conn_ = conn;
       current_peer_ = peer;
       bind_receive_handler_();
-  // Outbound connect should not trigger receiver-side UI transition.
+      // Outbound connect should not trigger receiver-side UI transition.
     }
 
     void app_net::disconnect()
