@@ -22,7 +22,7 @@ using socket_t = SOCKET;
 using socket_t = int;
 #endif
 
-#include "networking/udp/event_emitter.h"
+#include "utils/event_emitter/event_emitter.h"
 #include "networking/udp/events.h"
 #include "networking/udp/peer_connection.h"
 
