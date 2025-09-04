@@ -6,6 +6,7 @@
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
+#include <iostream>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
@@ -34,7 +35,7 @@ namespace p2p
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(static_cast<uint16_t>(port()));
+    addr.sin_port = htons(static_cast<uint16_t>(config_.get_port()));
     if (::bind(sock_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
     {
       ::close(sock_);
@@ -74,10 +75,6 @@ namespace p2p
                              reinterpret_cast<sockaddr*>(&from), &from_len);
       if (n <= 0)
       {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-        {
-          break;
-        }
         break;
       }
 
@@ -88,7 +85,13 @@ namespace p2p
           ::inet_ntop(AF_INET, &from.sin_addr, ipstr, sizeof(ipstr));
       std::string from_ip = ip ? std::string(ip) : std::string();
 
-      peer from_peer{from_ip.empty() ? std::string("remote") : from_ip};
+      if (from_ip.empty())
+      {
+        std::cerr << "Failed to get sender IP address" << std::endl;
+        continue;
+      }
+
+      peer from_peer{from_ip};
       peer to_peer = peer::self();
 
       msg.set_from(from_peer);
