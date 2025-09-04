@@ -15,8 +15,9 @@ namespace flows
   class SenderFlow
   {
   public:
-    // Start the sender: connects to the device from store::connection_state and spawns workers.
-    // Returns true if started, false if no target or connection failed.
+    // Start the sender: connects to the device from store::connection_state and
+    // spawns workers. Returns true if started, false if no target or connection
+    // failed.
     bool start();
     // Stop background workers and disconnect.
     void stop();

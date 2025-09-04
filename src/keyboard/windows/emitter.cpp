@@ -58,7 +58,8 @@ namespace keyboard
     static int emitKey(uint16_t hidCode, bool down)
     {
       bool extended = false;
-      WORD scan = static_cast<WORD>(mapping::hid_to_win_scan(hidCode, extended));
+      WORD scan =
+          static_cast<WORD>(mapping::hid_to_win_scan(hidCode, extended));
       if (scan == 0)
       {
         return 0;
@@ -67,7 +68,8 @@ namespace keyboard
       in.type = INPUT_KEYBOARD;
       in.ki.wVk = 0; // using scancode
       in.ki.wScan = scan;
-      in.ki.dwFlags = KEYEVENTF_SCANCODE | (down ? 0 : KEYEVENTF_KEYUP) | (extended ? KEYEVENTF_EXTENDEDKEY : 0);
+      in.ki.dwFlags = KEYEVENTF_SCANCODE | (down ? 0 : KEYEVENTF_KEYUP) |
+                      (extended ? KEYEVENTF_EXTENDEDKEY : 0);
       return sendInput(in);
     }
 

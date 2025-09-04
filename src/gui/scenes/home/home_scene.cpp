@@ -29,9 +29,11 @@ void HomeScene::didMount()
         const std::string ip = p.ip_address;
         const std::string port = std::to_string(p.port);
         const bool busy = false; // no busy state in udp prototype yet
-        const std::string name = p.device_name.empty() ? p.device_id : p.device_name;
+        const std::string name =
+            p.device_name.empty() ? p.device_id : p.device_name;
 
-        auto it = std::find_if(devices.begin(), devices.end(), [&](const entities::ConnectionCandidate& d)
+        auto it = std::find_if(devices.begin(), devices.end(),
+                               [&](const entities::ConnectionCandidate& d)
                                { return d.ip() == ip && d.port() == port; });
         entities::ConnectionCandidate cc(busy, name, ip, port);
         if (it == devices.end())
@@ -50,17 +52,21 @@ void HomeScene::didMount()
         auto& devices = store::connection_state().available_devices.get();
         const std::string ip = p.ip_address;
         const std::string port = std::to_string(p.port);
-        devices.erase(std::remove_if(devices.begin(), devices.end(), [&](const entities::ConnectionCandidate& d)
-                                     { return d.ip() == ip && d.port() == port; }),
-                      devices.end());
+        devices.erase(
+            std::remove_if(devices.begin(), devices.end(),
+                           [&](const entities::ConnectionCandidate& d)
+                           { return d.ip() == ip && d.port() == port; }),
+            devices.end());
       });
 
   // Auto-enter ReceiverScene on inbound session start
   session_start_sub_id_ = appnet.on_session_start().subscribe(
       [](const net::udp::peer_info& p)
       {
-        // If we didn't initiate connect from this UI, this indicates an inbound session.
-        gui::framework::post_to_ui([] { gui::framework::set_window_scene<ReceiverScene>(); });
+        // If we didn't initiate connect from this UI, this indicates an inbound
+        // session.
+        gui::framework::post_to_ui(
+            [] { gui::framework::set_window_scene<ReceiverScene>(); });
       });
 }
 
@@ -70,8 +76,10 @@ void HomeScene::render()
   ImGuiIO& io = ImGui::GetIO();
   ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
   ImGui::SetNextWindowSize(io.DisplaySize);
-  ImGuiWindowFlags rootFlags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
-                               ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar;
+  ImGuiWindowFlags rootFlags =
+      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+      ImGuiWindowFlags_NoTitleBar;
   ImGui::Begin("Home", nullptr, rootFlags);
 
   ImGui::TextUnformatted("Available devices");
@@ -88,7 +96,9 @@ void HomeScene::render()
   }
 
   if (ImGui::BeginTable("device_table", 2,
-                        ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
+                        ImGuiTableFlags_SizingStretchProp |
+                            ImGuiTableFlags_RowBg |
+                            ImGuiTableFlags_BordersInnerV))
   {
     ImGui::TableSetupColumn("Device", ImGuiTableColumnFlags_WidthStretch, 4.0f);
     ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthStretch, 1.0f);
@@ -110,14 +120,16 @@ void HomeScene::render()
       if (ImGui::Button((std::string("Connect##") + std::to_string(i)).c_str()))
       {
         // Persist selected device and set sender scene
-        store::connection_state().connected_device.set(std::make_shared<entities::ConnectionCandidate>(d));
+        store::connection_state().connected_device.set(
+            std::make_shared<entities::ConnectionCandidate>(d));
         net::udp::peer_info peer{};
         peer.device_id = d.ip() + ":" + d.port();
         peer.device_name = d.name();
         peer.ip_address = d.ip();
         peer.port = std::stoi(d.port());
         net::udp::app_net::instance().connect_to_peer(peer);
-        gui::framework::post_to_ui([] { gui::framework::set_window_scene<SenderScene>(); });
+        gui::framework::post_to_ui(
+            [] { gui::framework::set_window_scene<SenderScene>(); });
       }
       ImGui::EndDisabled();
       ++i;

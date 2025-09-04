@@ -45,7 +45,8 @@ namespace keyboard
       e.code = static_cast<uint16_t>(je.value("code", 0));
       e.dx = je.value("dx", 0);
       e.dy = je.value("dy", 0);
-      // Back-compat: if payload uses legacy 'delta' for vertical scroll, map it to dy
+      // Back-compat: if payload uses legacy 'delta' for vertical scroll, map it
+      // to dy
       if (e.action == InputEvent::Action::Scroll && e.dy == 0)
       {
         e.dy = je.value("delta", 0);

@@ -27,11 +27,15 @@ void SenderScene::willUnmount()
 
 void SenderScene::handleInput(const gui::framework::UIInputEvent& event)
 {
-  // if pressed option + control + esc, then release mouse confinement and allow for events to propagate
+  // if pressed option + control + esc, then release mouse confinement and allow
+  // for events to propagate
   if (event.raw_event.type == SDL_EVENT_KEY_DOWN &&
-      gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_LALT) &&
-      gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_LCTRL) &&
-      gui::framework::UIInputManager::instance().is_pressed(SDL_SCANCODE_ESCAPE))
+      gui::framework::UIInputManager::instance().is_pressed(
+          SDL_SCANCODE_LALT) &&
+      gui::framework::UIInputManager::instance().is_pressed(
+          SDL_SCANCODE_LCTRL) &&
+      gui::framework::UIInputManager::instance().is_pressed(
+          SDL_SCANCODE_ESCAPE))
   {
     release_mouse_confinement();
   }
@@ -54,8 +58,10 @@ void SenderScene::render()
   ImGuiIO& io = ImGui::GetIO();
   ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
   ImGui::SetNextWindowSize(io.DisplaySize);
-  ImGuiWindowFlags rootFlags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
-                               ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar;
+  ImGuiWindowFlags rootFlags =
+      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+      ImGuiWindowFlags_NoTitleBar;
   ImGui::Begin("Sender", nullptr, rootFlags);
 
   // Safely read the currently connected device (may be null)

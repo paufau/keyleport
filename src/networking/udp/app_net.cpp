@@ -16,7 +16,8 @@ namespace net
     bool app_net::start(int listen_port)
     {
       std::lock_guard<std::mutex> lock(mtx_);
-      // Default to ephemeral ENet port (0) to reduce conflicts across multiple instances
+      // Default to ephemeral ENet port (0) to reduce conflicts across multiple
+      // instances
       const int enet_port = listen_port; // 0 means ephemeral
       const int bcast_port = (enet_port > 0) ? enet_port + 1 : 33334;
       if (!net_.start(enet_port, bcast_port))
@@ -27,10 +28,12 @@ namespace net
         return false;
       }
       discovery_ = std::make_unique<discovery_service>(net_);
-      // Announce the actual ENet port (which may be ephemeral if 0 was requested)
+      // Announce the actual ENet port (which may be ephemeral if 0 was
+      // requested)
       discovery_->start_discovery(net_.enet_port());
       // Accept inbound connections
-      net_.on_connect.subscribe([this](const network_event_connect& ev) { handle_incoming_connect_(ev); });
+      net_.on_connect.subscribe([this](const network_event_connect& ev)
+                                { handle_incoming_connect_(ev); });
       // Adopt inbound peer connections as the active session if we're idle
       net_.on_new_peer.subscribe(
           [this](const std::shared_ptr<peer_connection>& pc)
@@ -46,7 +49,8 @@ namespace net
             }
             peer_info peer{};
             peer.device_id = pc->address() + ":" + std::to_string(pc->port());
-            peer.device_name = ""; // unknown; can be enriched from discovery later
+            peer.device_name =
+                ""; // unknown; can be enriched from discovery later
             peer.ip_address = pc->address();
             peer.port = pc->port();
             current_conn_ = pc;
@@ -195,7 +199,8 @@ namespace net
 
     void app_net::handle_incoming_connect_(const network_event_connect&)
     {
-      // For now, inbound connect is auto-handled via ENet; app initiates session explicitly.
+      // For now, inbound connect is auto-handled via ENet; app initiates
+      // session explicitly.
     }
 
   } // namespace udp

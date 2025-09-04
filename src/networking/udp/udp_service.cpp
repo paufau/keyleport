@@ -82,7 +82,8 @@ namespace net
       address.host = ENET_HOST_ANY;
       address.port = static_cast<enet_uint16>(listen_port_);
 
-      host_ = enet_host_create(&address, /* peers */ 32, /* channels */ 2, /* in bw */ 0, /* out bw */ 0);
+      host_ = enet_host_create(&address, /* peers */ 32, /* channels */ 2,
+                               /* in bw */ 0, /* out bw */ 0);
       if (!host_)
       {
         std::cerr << "Failed to create ENet host" << std::endl;
@@ -105,14 +106,18 @@ namespace net
       {
 #endif
         int opt = 1;
-        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
+        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_BROADCAST,
+                     (const char*)&opt, sizeof(opt));
 #ifdef SO_REUSEADDR
-        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEADDR,
+                     (const char*)&opt, sizeof(opt));
 #endif
 #ifdef SO_REUSEPORT
-        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt, sizeof(opt));
+        ::setsockopt(bcast_send_sock_, SOL_SOCKET, SO_REUSEPORT,
+                     (const char*)&opt, sizeof(opt));
 #endif
-        // Bind send socket to INADDR_ANY to ensure consistent broadcast behavior on some OSes
+        // Bind send socket to INADDR_ANY to ensure consistent broadcast
+        // behavior on some OSes
         sockaddr_in saddr{};
         saddr.sin_family = AF_INET;
         saddr.sin_port = htons(0);
@@ -129,9 +134,11 @@ namespace net
       {
 #endif
         int opt = 1;
-        ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+        ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEADDR,
+                     (const char*)&opt, sizeof(opt));
 #ifdef SO_REUSEPORT
-        ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt, sizeof(opt));
+        ::setsockopt(bcast_recv_sock_, SOL_SOCKET, SO_REUSEPORT,
+                     (const char*)&opt, sizeof(opt));
 #endif
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
@@ -266,7 +273,8 @@ namespace net
               from = ip;
             }
             int port = event.peer ? event.peer->address.port : 0;
-            std::string data(reinterpret_cast<char*>(event.packet->data), event.packet->dataLength);
+            std::string data(reinterpret_cast<char*>(event.packet->data),
+                             event.packet->dataLength);
             if (event.peer)
             {
               std::shared_ptr<peer_connection> pc;
@@ -280,7 +288,8 @@ namespace net
                 else
                 {
                   // create wrapper lazily if missing
-                  auto created = std::make_shared<peer_connection>(this, event.peer);
+                  auto created =
+                      std::make_shared<peer_connection>(this, event.peer);
                   peer_wrappers_[event.peer] = created;
                   on_new_peer.emit(created);
                   pc = created;
@@ -336,8 +345,9 @@ namespace net
 #ifndef _WIN32
         flags = MSG_DONTWAIT;
 #endif
-        int n =
-            ::recvfrom(bcast_recv_sock_, buf.data(), static_cast<int>(buf.size()), flags, (sockaddr*)&from, &fromlen);
+        int n = ::recvfrom(bcast_recv_sock_, buf.data(),
+                           static_cast<int>(buf.size()), flags,
+                           (sockaddr*)&from, &fromlen);
         if (n > 0)
         {
           std::string payload(buf.data(), buf.data() + n);
@@ -345,7 +355,8 @@ namespace net
           {
             char ip[INET_ADDRSTRLEN]{};
             ::inet_ntop(AF_INET, &from.sin_addr, ip, sizeof(ip));
-            on_receive_broadcast.emit(network_event_broadcast{payload.substr(6), ip, ntohs(from.sin_port)});
+            on_receive_broadcast.emit(network_event_broadcast{
+                payload.substr(6), ip, ntohs(from.sin_port)});
           }
         }
         else
@@ -375,13 +386,16 @@ namespace net
         addr.sin_family = AF_INET;
         addr.sin_port = htons(static_cast<uint16_t>(broadcast_port_));
         addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-        ::sendto(bcast_send_sock_, payload.data(), static_cast<int>(payload.size()), 0, (sockaddr*)&addr, sizeof(addr));
+        ::sendto(bcast_send_sock_, payload.data(),
+                 static_cast<int>(payload.size()), 0, (sockaddr*)&addr,
+                 sizeof(addr));
         return;
       }
       for (auto target : bcast_targets_)
       {
         target.sin_port = htons(static_cast<uint16_t>(broadcast_port_));
-        ::sendto(bcast_send_sock_, payload.data(), static_cast<int>(payload.size()), 0,
+        ::sendto(bcast_send_sock_, payload.data(),
+                 static_cast<int>(payload.size()), 0,
                  reinterpret_cast<const sockaddr*>(&target), sizeof(target));
       }
     }
@@ -405,7 +419,8 @@ namespace net
           {
             continue;
           }
-          if ((ifa->ifa_flags & IFF_LOOPBACK) || !(ifa->ifa_flags & IFF_BROADCAST))
+          if ((ifa->ifa_flags & IFF_LOOPBACK) ||
+              !(ifa->ifa_flags & IFF_BROADCAST))
           {
             continue;
           }
@@ -428,7 +443,8 @@ namespace net
 #endif
     }
 
-    peer_connection_ptr udp_service::connect_to(const std::string& address, int port)
+    peer_connection_ptr udp_service::connect_to(const std::string& address,
+                                                int port)
     {
       if (!host_)
       {
@@ -463,13 +479,15 @@ namespace net
       }
     }
 
-    void udp_service::send_reliable_packet(_ENetPeer* peer, const std::string& data)
+    void udp_service::send_reliable_packet(_ENetPeer* peer,
+                                           const std::string& data)
     {
       if (!peer)
       {
         return;
       }
-      ENetPacket* pkt = enet_packet_create(data.data(), data.size(), ENET_PACKET_FLAG_RELIABLE);
+      ENetPacket* pkt = enet_packet_create(data.data(), data.size(),
+                                           ENET_PACKET_FLAG_RELIABLE);
       {
         std::lock_guard<std::mutex> lock(host_mutex_);
         enet_peer_send(reinterpret_cast<ENetPeer*>(peer), 0, pkt);
@@ -480,7 +498,8 @@ namespace net
       }
     }
 
-    void udp_service::send_unreliable_packet(_ENetPeer* peer, const std::string& data)
+    void udp_service::send_unreliable_packet(_ENetPeer* peer,
+                                             const std::string& data)
     {
       if (!peer)
       {

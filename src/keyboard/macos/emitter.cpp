@@ -14,7 +14,8 @@ namespace keyboard
     int emit(const InputEvent& event) override
     {
       std::cout << "[macos emitter] type=" << static_cast<int>(event.type)
-                << " action=" << static_cast<int>(event.action) << " code=" << event.code << " dx=" << event.dx
+                << " action=" << static_cast<int>(event.action)
+                << " code=" << event.code << " dx=" << event.dx
                 << " dy=" << event.dy << std::endl;
       return 0;
     }

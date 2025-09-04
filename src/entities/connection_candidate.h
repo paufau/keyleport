@@ -7,8 +7,10 @@ namespace entities
   class ConnectionCandidate
   {
   public:
-    ConnectionCandidate(bool is_busy, std::string name, std::string ip, std::string port)
-        : is_busy_(is_busy), name_(std::move(name)), ip_(std::move(ip)), port_(std::move(port))
+    ConnectionCandidate(bool is_busy, std::string name, std::string ip,
+                        std::string port)
+        : is_busy_(is_busy), name_(std::move(name)), ip_(std::move(ip)),
+          port_(std::move(port))
     {
     }
 

@@ -20,7 +20,8 @@ namespace states
 
     // Get current value
     // Non-const accessor to allow mutation of the contained value.
-    // Note: requires the Atom to have been assigned a value via set() or constructed with an initial value.
+    // Note: requires the Atom to have been assigned a value via set() or
+    // constructed with an initial value.
     T& get() { return *value_; }
     // Const accessor retained for read-only use sites.
     const T& get() const { return *value_; }

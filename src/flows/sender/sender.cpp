@@ -57,12 +57,14 @@ namespace flows
     {
       return;
     }
-    if (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Move)
+    if (ev.type == keyboard::InputEvent::Type::Mouse &&
+        ev.action == keyboard::InputEvent::Action::Move)
     {
       moveAgg_.add(ev.dx, ev.dy);
       return;
     }
-    if (ev.type == keyboard::InputEvent::Type::Mouse && ev.action == keyboard::InputEvent::Action::Scroll)
+    if (ev.type == keyboard::InputEvent::Type::Mouse &&
+        ev.action == keyboard::InputEvent::Action::Scroll)
     {
       scrollAgg_.add(ev.dx, ev.dy);
       return;

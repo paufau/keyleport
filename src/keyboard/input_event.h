@@ -4,7 +4,8 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-// Forward declare SDL event to avoid pulling SDL headers in users of this header
+// Forward declare SDL event to avoid pulling SDL headers in users of this
+// header
 union SDL_Event;
 
 namespace keyboard

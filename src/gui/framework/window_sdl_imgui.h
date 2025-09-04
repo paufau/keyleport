@@ -15,10 +15,12 @@ namespace gui
     class SdlImGuiWindow : public UIWindow
     {
     public:
-      SdlImGuiWindow(const char* title = "Keyleport", int width = 960, int height = 600);
+      SdlImGuiWindow(const char* title = "Keyleport", int width = 960,
+                     int height = 600);
       ~SdlImGuiWindow() override;
 
-      // Initialize SDL window, SDL_Renderer and ImGui (platform + renderer backends)
+      // Initialize SDL window, SDL_Renderer and ImGui (platform + renderer
+      // backends)
       void init() override;
       void deinit() override;
 

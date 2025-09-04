@@ -19,7 +19,8 @@ namespace net
       stop_discovery();
     }
 
-    void discovery_service::start_discovery(int listen_port, std::chrono::seconds lose_after)
+    void discovery_service::start_discovery(int listen_port,
+                                            std::chrono::seconds lose_after)
     {
       if (running_.exchange(true))
       {
@@ -33,7 +34,8 @@ namespace net
           [this](const network_event_broadcast& ev)
           {
             peer_info info;
-            if (!peer_info_from_announce_json(ev.data, ev.from_address, ev.from_port, info))
+            if (!peer_info_from_announce_json(ev.data, ev.from_address,
+                                              ev.from_port, info))
             {
               std::cerr << "discovery_service parse error" << std::endl;
               return;
@@ -98,9 +100,12 @@ namespace net
     void discovery_service::loop_broadcast_()
     {
       // For the prototype, generate a pseudo device_id.
-      std::string device_id = "device-" + std::to_string(reinterpret_cast<uintptr_t>(this) & 0xFFFF);
+      std::string device_id =
+          "device-" +
+          std::to_string(reinterpret_cast<uintptr_t>(this) & 0xFFFF);
       const std::string device_name = get_device_name();
-      auto payload = peer_announce_to_json(device_id, device_name, listen_port_);
+      auto payload =
+          peer_announce_to_json(device_id, device_name, listen_port_);
 
       while (running_)
       {

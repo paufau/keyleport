@@ -1,4 +1,5 @@
-// Tracks currently pressed keys for the UI as a simple, globally-accessible singleton
+// Tracks currently pressed keys for the UI as a simple, globally-accessible
+// singleton
 #pragma once
 
 #include <SDL3/SDL.h>
@@ -28,7 +29,10 @@ namespace gui
       inline void clear() { pressed_.clear(); }
 
       // Queries
-      inline bool is_pressed(SDL_Scancode sc) const { return pressed_.find(sc) != pressed_.end(); }
+      inline bool is_pressed(SDL_Scancode sc) const
+      {
+        return pressed_.find(sc) != pressed_.end();
+      }
 
       inline bool empty() const { return pressed_.empty(); }
 

@@ -1,5 +1,6 @@
-// discovery_service: maintains a set of discovered peers based on UDP broadcasts.
-// Emits on_discovery when a new peer is found and on_lose when a peer times out.
+// discovery_service: maintains a set of discovered peers based on UDP
+// broadcasts. Emits on_discovery when a new peer is found and on_lose when a
+// peer times out.
 
 #pragma once
 
@@ -27,7 +28,9 @@ namespace net
       explicit discovery_service(udp_service& net);
       ~discovery_service();
 
-      void start_discovery(int listen_port = 33333, std::chrono::seconds lose_after = std::chrono::seconds(5));
+      void start_discovery(
+          int listen_port = 33333,
+          std::chrono::seconds lose_after = std::chrono::seconds(5));
       void stop_discovery();
 
       std::vector<peer_info> get_known_peers();

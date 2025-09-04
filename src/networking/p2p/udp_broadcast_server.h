@@ -6,22 +6,20 @@
 
 namespace p2p
 {
-  class udp_server
+
+  class udp_broadcast_server
   {
   public:
-    udp_server(udp_server_configuration config);
-    ~udp_server();
+    udp_broadcast_server(udp_server_configuration config);
+    ~udp_broadcast_server();
 
     void poll_events();
 
     utils::event_emitter<message> on_message;
 
   private:
+    int sock_{-1};
     udp_server_configuration config_;
-    struct _ENetHost* host_{nullptr};
-    bool enet_inited_{false};
-
-    void destroy_packet(struct _ENetPacket* packet);
-    std::string extract_ip(struct _ENetPeer* peer);
   };
+
 } // namespace p2p

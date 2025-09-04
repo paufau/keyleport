@@ -9,10 +9,14 @@ namespace gui
   {
     struct UIInputEvent
     {
-      SDL_Event raw_event;          // The raw SDL event data
-      bool should_propagate = true; // Whether the event should continue propagating
+      SDL_Event raw_event; // The raw SDL event data
+      bool should_propagate =
+          true; // Whether the event should continue propagating
 
-      void stopPropagation() const { const_cast<UIInputEvent*>(this)->should_propagate = false; }
+      void stopPropagation() const
+      {
+        const_cast<UIInputEvent*>(this)->should_propagate = false;
+      }
     };
 
     class UIScene

@@ -13,7 +13,10 @@ namespace keyboard
   class MacListener : public Listener
   {
   public:
-    void onEvent(EventHandler handler) override { handler_ = std::move(handler); }
+    void onEvent(EventHandler handler) override
+    {
+      handler_ = std::move(handler);
+    }
     int run() override { return listen_loop(); }
 
   private:
@@ -26,7 +29,8 @@ namespace keyboard
       SDL_Rect rect{0, 0, w, h};
       if (!SDL_SetWindowMouseRect(win, &rect))
       {
-        std::cerr << "SDL_SetWindowMouseRect failed: " << SDL_GetError() << std::endl;
+        std::cerr << "SDL_SetWindowMouseRect failed: " << SDL_GetError()
+                  << std::endl;
       }
     }
 
@@ -38,14 +42,16 @@ namespace keyboard
       }
       if (!SDL_SetWindowMouseGrab(win, true))
       {
-        std::cerr << "SDL_SetWindowMouseGrab failed: " << SDL_GetError() << std::endl;
+        std::cerr << "SDL_SetWindowMouseGrab failed: " << SDL_GetError()
+                  << std::endl;
       }
       int ww = 0, wh = 0;
       SDL_GetWindowSize(win, &ww, &wh);
       update_mouse_confinement_rect(win, ww, wh);
       if (!SDL_SetWindowRelativeMouseMode(win, true))
       {
-        std::cerr << "SDL_SetWindowRelativeMouseMode failed: " << SDL_GetError() << std::endl;
+        std::cerr << "SDL_SetWindowRelativeMouseMode failed: " << SDL_GetError()
+                  << std::endl;
       }
     }
 
@@ -104,7 +110,9 @@ namespace keyboard
           {
             InputEvent ie{};
             ie.type = InputEvent::Type::Key;
-            ie.action = (ev.type == SDL_EVENT_KEY_DOWN) ? InputEvent::Action::Down : InputEvent::Action::Up;
+            ie.action = (ev.type == SDL_EVENT_KEY_DOWN)
+                            ? InputEvent::Action::Down
+                            : InputEvent::Action::Up;
             ie.code = static_cast<uint16_t>(ev.key.scancode);
             handler_(ie);
             break;
@@ -136,7 +144,9 @@ namespace keyboard
           {
             InputEvent ie{};
             ie.type = InputEvent::Type::Mouse;
-            ie.action = (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN) ? InputEvent::Action::Down : InputEvent::Action::Up;
+            ie.action = (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+                            ? InputEvent::Action::Down
+                            : InputEvent::Action::Up;
             ie.code = static_cast<uint16_t>(ev.button.button);
             ie.dx = 0;
             ie.dy = 0;

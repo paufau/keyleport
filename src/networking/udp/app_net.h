@@ -1,5 +1,6 @@
 // app_net: high-level singleton that wires udp_service + discovery_service
-// and exposes a simple API for the app (session start/stop, send, receive, discovery events).
+// and exposes a simple API for the app (session start/stop, send, receive,
+// discovery events).
 
 #pragma once
 
@@ -25,7 +26,8 @@ namespace net
     public:
       static app_net& instance();
 
-      // Start/stop network stack. listen_port is used for ENet host and discovery broadcast.
+      // Start/stop network stack. listen_port is used for ENet host and
+      // discovery broadcast.
       bool start(int listen_port = 0);
       void stop();
 

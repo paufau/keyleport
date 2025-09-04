@@ -5,7 +5,8 @@
 namespace keyboard
 {
 
-  static inline InputEvent make_key_event(SDL_KeyboardEvent const& k, InputEvent::Action a)
+  static inline InputEvent make_key_event(SDL_KeyboardEvent const& k,
+                                          InputEvent::Action a)
   {
     InputEvent ev{};
     ev.type = InputEvent::Type::Key;
@@ -58,11 +59,15 @@ namespace keyboard
     case SDL_EVENT_KEY_UP:
       return make_key_event(e.key, InputEvent::Action::Up);
     case SDL_EVENT_MOUSE_MOTION:
-      // SDL stores relative motion in motion.xrel / yrel when using relative mode; otherwise derive delta
-      return make_mouse_move(static_cast<int>(e.motion.xrel), static_cast<int>(e.motion.yrel));
+      // SDL stores relative motion in motion.xrel / yrel when using relative
+      // mode; otherwise derive delta
+      return make_mouse_move(static_cast<int>(e.motion.xrel),
+                             static_cast<int>(e.motion.yrel));
     case SDL_EVENT_MOUSE_WHEEL:
-      // SDL wheel gives precise_x/y (float) and x/y (int). Use x/y ints for simplicity.
-      return make_scroll(static_cast<int>(e.wheel.x), static_cast<int>(e.wheel.y));
+      // SDL wheel gives precise_x/y (float) and x/y (int). Use x/y ints for
+      // simplicity.
+      return make_scroll(static_cast<int>(e.wheel.x),
+                         static_cast<int>(e.wheel.y));
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
       return make_mouse_button(static_cast<uint16_t>(e.button.button), true);
     case SDL_EVENT_MOUSE_BUTTON_UP:

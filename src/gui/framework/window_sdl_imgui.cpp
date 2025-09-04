@@ -42,7 +42,8 @@ namespace gui
       SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD);
 
       // Create window + renderer
-      SDL_Window* window = SDL_CreateWindow(title_, width_, height_, SDL_WINDOW_RESIZABLE);
+      SDL_Window* window =
+          SDL_CreateWindow(title_, width_, height_, SDL_WINDOW_RESIZABLE);
       if (!window)
       {
         std::string err = SDL_GetError();
@@ -74,8 +75,8 @@ namespace gui
       ImGui::StyleColorsDark();
 
       // Make default font/UI a bit larger and respect system/monitor scale.
-      // SDL/ImGui backends handle HiDPI framebuffer, but we still scale UI metrics
-      // and font rendering to track the system content scale.
+      // SDL/ImGui backends handle HiDPI framebuffer, but we still scale UI
+      // metrics and font rendering to track the system content scale.
       {
         // Derive system content scale from window logical vs pixel size
         int lw = 0, lh = 0, pw = 0, ph = 0;
@@ -99,7 +100,8 @@ namespace gui
         io.Fonts->Clear();
         ImFontConfig cfg;
 
-        cfg.SizePixels = 24.0f * scale; // ImGui default is ~13px; scale to target
+        cfg.SizePixels =
+            24.0f * scale; // ImGui default is ~13px; scale to target
         io.Fonts->AddFontDefault(&cfg);
         io.FontGlobalScale = 1.0f; // avoid atlas scaling blur
       }
@@ -172,7 +174,8 @@ namespace gui
       SDL_Rect rect{0, 0, w, h};
       if (!SDL_SetWindowMouseRect(win, &rect))
       {
-        std::cerr << "SDL_SetWindowMouseRect failed: " << SDL_GetError() << std::endl;
+        std::cerr << "SDL_SetWindowMouseRect failed: " << SDL_GetError()
+                  << std::endl;
       }
     }
 
@@ -184,14 +187,16 @@ namespace gui
       }
       if (!SDL_SetWindowMouseGrab(window_, true))
       {
-        std::cerr << "SDL_SetWindowMouseGrab failed: " << SDL_GetError() << std::endl;
+        std::cerr << "SDL_SetWindowMouseGrab failed: " << SDL_GetError()
+                  << std::endl;
       }
       int ww = 0, wh = 0;
       SDL_GetWindowSize(window_, &ww, &wh);
       update_mouse_confinement_rect(window_, ww, wh);
       if (!SDL_SetWindowRelativeMouseMode(window_, true))
       {
-        std::cerr << "SDL_SetWindowRelativeMouseMode failed: " << SDL_GetError() << std::endl;
+        std::cerr << "SDL_SetWindowRelativeMouseMode failed: " << SDL_GetError()
+                  << std::endl;
       }
     }
 
@@ -236,10 +241,12 @@ namespace gui
         switch (ev.type)
         {
         case SDL_EVENT_KEY_DOWN:
-          gui::framework::UIInputManager::instance().press(static_cast<SDL_Scancode>(ev.key.scancode));
+          gui::framework::UIInputManager::instance().press(
+              static_cast<SDL_Scancode>(ev.key.scancode));
           break;
         case SDL_EVENT_KEY_UP:
-          gui::framework::UIInputManager::instance().release(static_cast<SDL_Scancode>(ev.key.scancode));
+          gui::framework::UIInputManager::instance().release(
+              static_cast<SDL_Scancode>(ev.key.scancode));
           break;
         case SDL_EVENT_WINDOW_FOCUS_LOST:
           // Clear pressed keys when focus is lost to avoid stuck keys
@@ -275,7 +282,8 @@ namespace gui
         scene_->render();
       }
 
-      // Run any cross-thread UI tasks (e.g., scene changes posted from networking threads)
+      // Run any cross-thread UI tasks (e.g., scene changes posted from
+      // networking threads)
       gui::framework::process_ui_tasks();
 
       // Rendering

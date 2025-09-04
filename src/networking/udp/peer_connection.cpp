@@ -9,7 +9,8 @@ namespace net
   namespace udp
   {
 
-    peer_connection::peer_connection(udp_service* svc, _ENetPeer* peer) : service_(svc), peer_(peer)
+    peer_connection::peer_connection(udp_service* svc, _ENetPeer* peer)
+        : service_(svc), peer_(peer)
     {
     }
 
@@ -67,7 +68,8 @@ namespace net
       {
         return false;
       }
-      return reinterpret_cast<ENetPeer*>(peer_)->state == ENET_PEER_STATE_CONNECTED;
+      return reinterpret_cast<ENetPeer*>(peer_)->state ==
+             ENET_PEER_STATE_CONNECTED;
     }
 
   } // namespace udp

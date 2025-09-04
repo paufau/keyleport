@@ -12,8 +12,14 @@ namespace keyboard
   class WindowsKeyboard : public Keyboard
   {
   public:
-    std::unique_ptr<Listener> createListener() override { return make_windows_listener(); }
-    std::unique_ptr<Emitter> createEmitter() override { return make_windows_emitter(); }
+    std::unique_ptr<Listener> createListener() override
+    {
+      return make_windows_listener();
+    }
+    std::unique_ptr<Emitter> createEmitter() override
+    {
+      return make_windows_emitter();
+    }
   };
 
   std::unique_ptr<Keyboard> make_keyboard()

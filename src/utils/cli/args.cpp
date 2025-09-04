@@ -73,7 +73,9 @@ namespace cli
 
   void print_usage(const char* program_name)
   {
-    std::cout << "Usage: " << program_name << " --mode <sender|receiver> [--ip <addr>] [--port <port>]" << std::endl;
+    std::cout << "Usage: " << program_name
+              << " --mode <sender|receiver> [--ip <addr>] [--port <port>]"
+              << std::endl;
   }
 
 } // namespace cli

@@ -53,10 +53,12 @@ namespace
   static std::string get_model_linux()
   {
     // Prefer DMI product name
-    std::string name = read_first_line("/sys/devices/virtual/dmi/id/product_name");
+    std::string name =
+        read_first_line("/sys/devices/virtual/dmi/id/product_name");
     if (!name.empty())
     {
-      std::string version = read_first_line("/sys/devices/virtual/dmi/id/product_version");
+      std::string version =
+          read_first_line("/sys/devices/virtual/dmi/id/product_version");
       if (!version.empty() && version != "None")
       {
         name += " " + version;

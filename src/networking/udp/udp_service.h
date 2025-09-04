@@ -1,5 +1,6 @@
-// udp_service: low-level UDP networking service with ENet for reliability/unreliability channels.
-// Uses ENet for data plane and POSIX UDP sockets for LAN broadcast discovery.
+// udp_service: low-level UDP networking service with ENet for
+// reliability/unreliability channels. Uses ENet for data plane and POSIX UDP
+// sockets for LAN broadcast discovery.
 
 #pragma once
 
@@ -36,7 +37,8 @@ namespace net
     // A minimal UDP service that supports:
     // - broadcast discovery messages
     // - connect/disconnect book-keeping
-    // - send_reliable (simulated via resend on a dedicated strand) and send_unreliable
+    // - send_reliable (simulated via resend on a dedicated strand) and
+    // send_unreliable
     // - events for broadcast, connect, disconnect, and received data
     class udp_service
     {
@@ -49,14 +51,16 @@ namespace net
       udp_service& operator=(const udp_service&) = delete;
 
       // listen_port: ENet host port for data plane.
-      // broadcast_port: UDP port used for LAN discovery broadcasts (defaults to listen_port+1 or 33334).
+      // broadcast_port: UDP port used for LAN discovery broadcasts (defaults to
+      // listen_port+1 or 33334).
       bool start(int listen_port = 0, int broadcast_port = 0);
       void stop();
 
       // Broadcast a small discovery payload on the local subnet.
       void broadcast(const std::string& data);
 
-      // Maintain a logical connection map (address:port) even though UDP is connectionless.
+      // Maintain a logical connection map (address:port) even though UDP is
+      // connectionless.
       peer_connection_ptr connect_to(const std::string& address, int port);
       // Per-peer messaging is available via peer_connection.
 
@@ -71,7 +75,8 @@ namespace net
       event_emitter<network_event_broadcast> on_receive_broadcast;
       event_emitter<network_event_connect> on_connect;
       event_emitter<network_event_disconnect> on_disconnect;
-      // Emitted whenever a peer_connection wrapper is created for a connected peer
+      // Emitted whenever a peer_connection wrapper is created for a connected
+      // peer
       event_emitter<std::shared_ptr<peer_connection>> on_new_peer;
 
       // Thread-safe wrappers for ENet operations used by peer_connection
@@ -99,7 +104,8 @@ namespace net
       std::unordered_map<std::string, ENetPeer*> peers_;
       std::mutex peers_mutex_;
       // Map ENetPeer* to peer_connection wrapper to route per-peer events
-      std::unordered_map<ENetPeer*, std::shared_ptr<peer_connection>> peer_wrappers_;
+      std::unordered_map<ENetPeer*, std::shared_ptr<peer_connection>>
+          peer_wrappers_;
       // optional weak map of live peer_connection wrappers can be added later
 
       // UDP sockets for broadcast send/receive
@@ -118,7 +124,8 @@ namespace net
 #endif
       ;
 
-      // List of broadcast targets (255.255.255.255 and per-interface directed broadcast)
+      // List of broadcast targets (255.255.255.255 and per-interface directed
+      // broadcast)
       std::vector<sockaddr_in> bcast_targets_;
 
 #ifdef _WIN32
