@@ -3,7 +3,6 @@
 #include "gui/framework/ui_window.h"
 #include "keyboard/input_event.h"
 #include "keyboard/keyboard.h"
-#include "networking/udp/app_net.h"
 #include "store.h"
 
 #include <imgui.h>
@@ -16,22 +15,20 @@ void ReceiverScene::didMount()
 
   // Subscribe to received data and emit as input events
   keyboard::Emitter* emitter_ptr = emitter_.get();
-  net::udp::app_net::instance().set_on_receive(
-      [emitter_ptr](const std::string& payload)
-      {
-        if (!emitter_ptr || payload.empty())
-        {
-          return;
-        }
-        auto ev = keyboard::InputEventJSONConverter::decode(payload);
-        emitter_ptr->emit(ev);
-      });
+  // net::udp::app_net::instance().set_on_receive(
+  //     [emitter_ptr](const std::string& payload)
+  //     {
+  //       if (!emitter_ptr || payload.empty())
+  //       {
+  //         return;
+  //       }
+  //       auto ev = keyboard::InputEventJSONConverter::decode(payload);
+  //       emitter_ptr->emit(ev);
+  //     });
 }
 
 void ReceiverScene::willUnmount()
 {
-  // Stop receiving injections in this scene
-  net::udp::app_net::instance().set_on_receive(nullptr);
   emitter_.reset();
   kb_.reset();
 }

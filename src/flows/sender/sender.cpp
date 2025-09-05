@@ -1,7 +1,6 @@
 #include "sender.h"
 
 #include "keyboard/input_event.h"
-#include "networking/udp/app_net.h"
 
 #include <atomic>
 #include <chrono>
@@ -16,11 +15,11 @@ namespace flows
   bool SenderFlow::start()
   {
     // Ensure a session exists in UDP stack
-    if (!net::udp::app_net::instance().has_active_session())
-    {
-      std::cerr << "[sender] No active session" << std::endl;
-      return false;
-    }
+    // if (!net::udp::app_net::instance().has_active_session())
+    // {
+    //   std::cerr << "[sender] No active session" << std::endl;
+    //   return false;
+    // }
 
     // Start loops
     moveAgg_.running.store(true, std::memory_order_relaxed);
@@ -71,7 +70,7 @@ namespace flows
     }
     const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
     // Non-aggregated events: send reliably (ENet reliable channel)
-    net::udp::app_net::instance().send_reliable(payload);
+    // net::udp::app_net::instance().send_reliable(payload);
   }
 
   void SenderFlow::push_event(const SDL_Event& sdl_ev)
@@ -100,7 +99,7 @@ namespace flows
       mv.dx = dx;
       mv.dy = dy;
       const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
-      net::udp::app_net::instance().send_unreliable(payload);
+      // net::udp::app_net::instance().send_unreliable(payload);
     }
   }
 
@@ -124,7 +123,7 @@ namespace flows
       sc.dx = sx;
       sc.dy = sy;
       const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
-      net::udp::app_net::instance().send_unreliable(payload);
+      // net::udp::app_net::instance().send_unreliable(payload);
     }
   }
 

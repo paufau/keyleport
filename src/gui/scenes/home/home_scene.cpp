@@ -4,8 +4,6 @@
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/receiver/receiver_scene.h"
 #include "gui/scenes/sender/sender_scene.h"
-#include "networking/p2p/udp_broadcast_server.h"
-#include "networking/udp/app_net.h"
 #include "store.h"
 
 #include <algorithm>
@@ -19,56 +17,6 @@ void HomeScene::didMount()
 {
   // Reset devices list
   store::connection_state().available_devices.get().clear();
-
-  auto& appnet = net::udp::app_net::instance();
-
-  // Update store on peer discovery
-  discovery_sub_id_ = appnet.on_discovery().subscribe(
-      [this](const net::udp::peer_info& p)
-      {
-        auto& devices = store::connection_state().available_devices.get();
-        const std::string ip = p.ip_address;
-        const std::string port = std::to_string(p.port);
-        const bool busy = false; // no busy state in udp prototype yet
-        const std::string name =
-            p.device_name.empty() ? p.device_id : p.device_name;
-
-        auto it = std::find_if(devices.begin(), devices.end(),
-                               [&](const entities::ConnectionCandidate& d)
-                               { return d.ip() == ip && d.port() == port; });
-        entities::ConnectionCandidate cc(busy, name, ip, port);
-        if (it == devices.end())
-        {
-          devices.push_back(cc);
-        }
-        else
-        {
-          *it = cc;
-        }
-      });
-
-  lose_sub_id_ = appnet.on_lose().subscribe(
-      [this](const net::udp::peer_info& p)
-      {
-        auto& devices = store::connection_state().available_devices.get();
-        const std::string ip = p.ip_address;
-        const std::string port = std::to_string(p.port);
-        devices.erase(
-            std::remove_if(devices.begin(), devices.end(),
-                           [&](const entities::ConnectionCandidate& d)
-                           { return d.ip() == ip && d.port() == port; }),
-            devices.end());
-      });
-
-  // Auto-enter ReceiverScene on inbound session start
-  session_start_sub_id_ = appnet.on_session_start().subscribe(
-      [](const net::udp::peer_info& p)
-      {
-        // If we didn't initiate connect from this UI, this indicates an inbound
-        // session.
-        gui::framework::post_to_ui(
-            [] { gui::framework::set_window_scene<ReceiverScene>(); });
-      });
 }
 
 void HomeScene::render()
@@ -120,15 +68,9 @@ void HomeScene::render()
       ImGui::BeginDisabled(d.is_busy());
       if (ImGui::Button((std::string("Connect##") + std::to_string(i)).c_str()))
       {
-        // Persist selected device and set sender scene
         store::connection_state().connected_device.set(
             std::make_shared<entities::ConnectionCandidate>(d));
-        net::udp::peer_info peer{};
-        peer.device_id = d.ip() + ":" + d.port();
-        peer.device_name = d.name();
-        peer.ip_address = d.ip();
-        peer.port = std::stoi(d.port());
-        net::udp::app_net::instance().connect_to_peer(peer);
+
         gui::framework::post_to_ui(
             [] { gui::framework::set_window_scene<SenderScene>(); });
       }
@@ -144,22 +86,6 @@ void HomeScene::render()
 
 void HomeScene::willUnmount()
 {
-  auto& appnet = net::udp::app_net::instance();
-  if (discovery_sub_id_)
-  {
-    appnet.on_discovery().unsubscribe(discovery_sub_id_);
-    discovery_sub_id_ = 0;
-  }
-  if (lose_sub_id_)
-  {
-    appnet.on_lose().unsubscribe(lose_sub_id_);
-    lose_sub_id_ = 0;
-  }
-  if (session_start_sub_id_)
-  {
-    appnet.on_session_start().unsubscribe(session_start_sub_id_);
-    session_start_sub_id_ = 0;
-  }
 }
 
 HomeScene::~HomeScene()

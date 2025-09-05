@@ -10,28 +10,72 @@ file(GLOB_RECURSE KEYLEPORT_SOURCES CONFIGURE_DEPENDS
   src/*.cpp
 )
 
-# Generic platform filtering: only compile sources under the active platform dir
-if(APPLE)
-  # On macOS include everything except windows-specific sources
-  list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/windows/.*\\.cpp$")
-elseif(WIN32)
-  # On Windows include everything except macOS-specific sources
-  list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/macos/.*\\.cpp$")
-else()
-  # On other platforms exclude both macOS and Windows specific trees
-  list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/(macos|windows)/.*\\.cpp$")
-endif()
+#
+# Platform-aware implementation selector
+#
+# For any header under src/, prefer an implementation in a platform subfolder
+# then "cxx" subfolder, then same folder as the header. Exclude other
+# implementations if a higher-preference one is present. This runs after the
+# coarse platform folder filtering above, so non-target platform subfolders are
+# already excluded from KEYLEPORT_SOURCES.
+function(keyleport_select_platform_impl SOURCES_VAR)
+  # Make a working copy of the list
+  set(_all_src "${${SOURCES_VAR}}")
 
-# Exclude the UDP console demo main from the GUI app target
-list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/udp/main\\.cpp$")
+  # Collect headers to drive selection
+  file(GLOB_RECURSE _hdrs CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/src/*.h
+    ${CMAKE_SOURCE_DIR}/src/*.hpp
+  )
 
-# Exclude legacy P2P stack sources (replaced by networking/udp)
-list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/p2p/.*\\.cpp$")
+  foreach(_h IN LISTS _hdrs)
+    get_filename_component(_hdr_dir "${_h}" DIRECTORY)
+    get_filename_component(_stem "${_h}" NAME_WE)
 
-# Remove platform-specific networking folders; use cxx (Asio) implementation
-list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/server/(macos|windows)/.*\\.cpp$")
-# Remove platform-specific discovery folders; use cxx implementation
-list(FILTER KEYLEPORT_SOURCES EXCLUDE REGEX ".*/networking/discovery/(macos|windows)/.*\\.cpp$")
+    # Candidate implementations (absolute paths)
+    set(_cand_same    "${_hdr_dir}/${_stem}.cpp")
+    set(_cand_cxx     "${_hdr_dir}/cxx/${_stem}.cpp")
+    set(_cand_macos   "${_hdr_dir}/macos/${_stem}.cpp")
+    set(_cand_windows "${_hdr_dir}/windows/${_stem}.cpp")
+
+    # Build preference order for current platform
+    set(_pref_list)
+    if(APPLE)
+      list(APPEND _pref_list "${_cand_macos}" "${_cand_cxx}" "${_cand_same}")
+    elseif(WIN32)
+      list(APPEND _pref_list "${_cand_windows}" "${_cand_cxx}" "${_cand_same}")
+    else()
+      list(APPEND _pref_list "${_cand_cxx}" "${_cand_same}")
+    endif()
+
+    # Determine which candidates actually exist and are currently part of the sources
+    set(_present)
+    foreach(_c IN LISTS _pref_list)
+      if(EXISTS "${_c}")
+        list(FIND _all_src "${_c}" _idx)
+        if(NOT _idx EQUAL -1)
+          list(APPEND _present "${_c}")
+        endif()
+      endif()
+    endforeach()
+
+    if(_present)
+      # Keep the first in preference order; remove the others from the sources
+      list(GET _present 0 _keep)
+      foreach(_c IN LISTS _present)
+        if(NOT _c STREQUAL _keep)
+          list(REMOVE_ITEM _all_src "${_c}")
+        endif()
+      endforeach()
+    endif()
+  endforeach()
+
+  # Return the filtered list
+  set(${SOURCES_VAR} "${_all_src}" PARENT_SCOPE)
+endfunction()
+
+# Apply the per-header platform implementation selection
+keyleport_select_platform_impl(KEYLEPORT_SOURCES)
 
 # Device-name sources are self-gated with preprocessor guards per platform,
 # so we don't need to filter them here.
@@ -45,19 +89,6 @@ add_executable(keyleport ${KEYLEPORT_SOURCES})
 
 target_include_directories(keyleport PRIVATE src)
 
-# Asio (standalone) header-only via FetchContent
-include(FetchContent)
-FetchContent_Declare(
-  asio
-  GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-  GIT_TAG asio-1-28-0
-)
-FetchContent_MakeAvailable(asio)
-# Provide include dir and define ASIO_STANDALONE
-if(DEFINED asio_SOURCE_DIR)
-  target_include_directories(keyleport PRIVATE ${asio_SOURCE_DIR}/asio/include)
-endif()
-target_compile_definitions(keyleport PRIVATE ASIO_STANDALONE)
 
 if(APPLE OR UNIX)
   find_package(PkgConfig QUIET)

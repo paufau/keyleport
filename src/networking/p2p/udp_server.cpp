@@ -5,7 +5,7 @@
 
 namespace p2p
 {
-  void udp_server::destroy_packet(struct _ENetPacket* packet)
+  void udp_server::destroy_packet(ENetPacket* packet)
   {
     if (packet)
     {
@@ -13,7 +13,7 @@ namespace p2p
     }
   }
 
-  std::string udp_server::extract_ip(struct _ENetPeer* peer)
+  std::string udp_server::extract_ip(ENetPeer* peer)
   {
     if (!peer)
     {

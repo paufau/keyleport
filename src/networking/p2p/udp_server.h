@@ -4,6 +4,8 @@
 #include "./udp_server_configuration.h"
 #include "utils/event_emitter/event_emitter.h"
 
+#include <enet/enet.h>
+
 namespace p2p
 {
   class udp_server
@@ -18,10 +20,10 @@ namespace p2p
 
   private:
     udp_server_configuration config_;
-    struct _ENetHost* host_{nullptr};
+    ENetHost* host_{nullptr};
     bool enet_inited_{false};
 
-    void destroy_packet(struct _ENetPacket* packet);
-    std::string extract_ip(struct _ENetPeer* peer);
+    void destroy_packet(ENetPacket* packet);
+    std::string extract_ip(ENetPeer* peer);
   };
 } // namespace p2p

@@ -9,6 +9,7 @@ namespace p2p
   public:
     static peer self();
 
+    peer() = default;
     peer(const std::string& ip_address);
     ~peer();
 
@@ -17,6 +18,6 @@ namespace p2p
     void set_ip_address(const std::string& ip_address);
 
   private:
-    std::string ip_address_;
+    std::string ip_address_{};
   };
 } // namespace p2p
