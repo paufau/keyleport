@@ -38,5 +38,7 @@ namespace services
     int state_broadcast_interval_ms_ = 5000;
     int peer_stale_timeout_ms_ = 15000;
     int default_peer_port_ = 8800;
+    std::string self_ip_address_ = "127.0.0.1";
+    discovery_peer self_peer_;
   };
 } // namespace services

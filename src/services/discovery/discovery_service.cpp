@@ -11,9 +11,12 @@
 #include "utils/date/date.h"
 #include "utils/device_name/device_name.h"
 #include "utils/get_platform/platform.h"
+#include "utils/random_id/random_id.h"
 
 #include <algorithm>
 #include <memory>
+#include <random>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -82,16 +85,8 @@ void services::discovery_service::broadcast_own_state()
 
   if (should_broadcast && broadcast_client_)
   {
-    discovery_peer self_peer;
-
-    self_peer.device_id = "device-123";
-    self_peer.device_name = get_device_name();
-    self_peer.ip_address = "_";
-    self_peer.platform = get_platform();
-    self_peer.state = discovery_peer_state::idle;
-
     last_broadcast_time_ms_ = static_cast<int>(now);
-    broadcast_client_->broadcast(self_peer.encode());
+    broadcast_client_->broadcast(self_peer_.encode());
   }
 }
 
@@ -100,6 +95,10 @@ void services::discovery_service::update_connection_candidates()
   std::vector<entities::ConnectionCandidate> candidates;
   for (const auto& peer : discovered_peers)
   {
+    if (peer.ip_address == self_ip_address_)
+    {
+      continue;
+    }
     candidates.emplace_back(peer.state == discovery_peer_state::busy,
                             peer.device_name, peer.ip_address,
                             std::to_string(default_peer_port_));
@@ -109,6 +108,12 @@ void services::discovery_service::update_connection_candidates()
 
 void services::discovery_service::init()
 {
+  self_peer_.device_id = get_random_id();
+  self_peer_.device_name = get_device_name();
+  self_peer_.ip_address = self_ip_address_;
+  self_peer_.platform = get_platform();
+  self_peer_.state = discovery_peer_state::idle;
+
   p2p::udp_server_configuration config;
   config.set_port(default_peer_port_);
 
@@ -123,6 +128,15 @@ void services::discovery_service::init()
       [this](const p2p::message& msg)
       {
         discovery_peer peer = discovery_peer::decode(msg.get_payload());
+        // Always trust the packet's real sender IP so we don't rely on what
+        // the other side put in payload (could be blank).
+        peer.ip_address = msg.get_from().get_ip_address();
+
+        if ((peer.ip_address == self_ip_address_))
+        {
+          return;
+        }
+
         update_peer_state(peer);
       });
 }
