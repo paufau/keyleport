@@ -4,6 +4,9 @@
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/receiver/receiver_scene.h"
 #include "gui/scenes/sender/sender_scene.h"
+#include "networking/p2p/peer.h"
+#include "services/communication/communication_service.h"
+#include "services/communication/packages/become_receiver_package.h"
 #include "services/discovery/discovery_service.h"
 #include "services/service_locator.h"
 #include "store.h"
@@ -25,6 +28,52 @@ void HomeScene::didMount()
   discovery_service_ = std::make_shared<services::discovery_service>();
   services::service_locator::instance().repository.add_service(
       discovery_service_);
+
+  communication_service_ = std::make_shared<services::communication_service>();
+
+  services::service_locator::instance().repository.add_service(
+      communication_service_);
+
+  communication_subscription_id_ = communication_service_->on_package.subscribe(
+      [this](const services::typed_package& package)
+      {
+        if (!services::become_receiver_package::is(package))
+        {
+          return;
+        }
+
+        auto become_receiver =
+            services::become_receiver_package::decode(package.payload);
+
+        // Try to find the device by IP in the store's available devices
+        const auto devices = store::connection_state().available_devices.get();
+
+        std::shared_ptr<entities::ConnectionCandidate> candidate;
+        if (auto it =
+                std::find_if(devices.begin(), devices.end(), [&](const auto& d)
+                             { return d.ip() == become_receiver.ip_address; });
+            it != devices.end())
+        {
+          candidate = std::make_shared<entities::ConnectionCandidate>(*it);
+        }
+        else
+        {
+          std::cerr << "Received become_receiver package from unknown device: "
+                    << become_receiver.ip_address << std::endl;
+          return;
+        }
+
+        // Accept the connection request
+        store::connection_state().connected_device.set(candidate);
+
+        // Pin the communication service to this peer
+        communication_service_->pin_connection(
+            p2p::peer(become_receiver.ip_address));
+
+        // Switch to the receiver scene
+        gui::framework::post_to_ui(
+            [] { gui::framework::set_window_scene<ReceiverScene>(); });
+      });
 }
 
 void HomeScene::render()
@@ -79,6 +128,16 @@ void HomeScene::render()
         store::connection_state().connected_device.set(
             std::make_shared<entities::ConnectionCandidate>(d));
 
+        // Pin the communication service to this peer
+        communication_service_->pin_connection(p2p::peer(d.ip()));
+        // Send become_receiver package
+        services::typed_package pkg;
+        pkg.__typename = services::become_receiver_package::__typename;
+        services::become_receiver_package become_receiver_pkg;
+        become_receiver_pkg.ip_address = p2p::peer::self().get_ip_address();
+        pkg.payload = become_receiver_pkg.encode();
+        communication_service_->send_package_reliable(pkg);
+
         gui::framework::post_to_ui(
             [] { gui::framework::set_window_scene<SenderScene>(); });
       }
@@ -100,9 +159,7 @@ void HomeScene::willUnmount()
         discovery_service_);
     discovery_service_.reset();
   }
-}
 
-HomeScene::~HomeScene()
-{
-  // Nothing to do; P2P runtime is shut down in main.
+  communication_service_->on_package.unsubscribe(
+      communication_subscription_id_);
 }
