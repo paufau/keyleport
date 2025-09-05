@@ -1,3 +1,5 @@
+#pragma once
+
 namespace services
 {
   class service_lifecycle_listener

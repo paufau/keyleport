@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gui/framework/ui_scene.h"
+#include "services/discovery/discovery_service.h"
 
 #include <cstdint>
 #include <memory>
@@ -16,8 +17,6 @@ public:
 private:
   void render() override;
 
-  // Subscriptions to app_net events to clean up on unmount
-  std::uint64_t discovery_sub_id_{0};
-  std::uint64_t lose_sub_id_{0};
-  std::uint64_t session_start_sub_id_{0};
+  // Track the registered discovery service to remove it on unmount
+  std::shared_ptr<services::discovery_service> discovery_service_;
 };

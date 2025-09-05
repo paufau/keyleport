@@ -4,12 +4,16 @@
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/receiver/receiver_scene.h"
 #include "gui/scenes/sender/sender_scene.h"
+#include "services/discovery/discovery_service.h"
+#include "services/service_locator.h"
 #include "store.h"
 
 #include <algorithm>
 #include <imgui.h>
 #include <iostream>
+#include <memory>
 #include <random>
+#include <string>
 
 // discovery and session lifecycle handled by net::udp::app_net
 
@@ -17,6 +21,10 @@ void HomeScene::didMount()
 {
   // Reset devices list
   store::connection_state().available_devices.get().clear();
+
+  discovery_service_ = std::make_shared<services::discovery_service>();
+  services::service_locator::instance().repository.add_service(
+      discovery_service_);
 }
 
 void HomeScene::render()
@@ -86,6 +94,12 @@ void HomeScene::render()
 
 void HomeScene::willUnmount()
 {
+  if (discovery_service_)
+  {
+    services::service_locator::instance().repository.remove_service(
+        discovery_service_);
+    discovery_service_.reset();
+  }
 }
 
 HomeScene::~HomeScene()
