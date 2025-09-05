@@ -10,10 +10,21 @@
 namespace utils
 {
 
+  // Helper to select callback type for EventT (void -> void(), otherwise ->
+  // void(const T&))
+  template <typename T> struct _callback_helper
+  {
+    using type = std::function<void(const T&)>;
+  };
+  template <> struct _callback_helper<void>
+  {
+    using type = std::function<void()>;
+  };
+
   template <typename EventT> class event_emitter
   {
   public:
-    using callback_t = std::function<void(const EventT&)>;
+    using callback_t = typename _callback_helper<EventT>::type;
     using subscription_id = std::uint64_t;
 
     subscription_id subscribe(callback_t cb)
@@ -23,7 +34,10 @@ namespace utils
       subscribers_.push_back(subscription_entry{id, std::move(cb)});
       return id;
     }
-    void emit(const EventT& ev)
+    // Emit for non-void payload
+    template <typename T = EventT,
+              typename std::enable_if<!std::is_void<T>::value, int>::type = 0>
+    void emit(const T& ev)
     {
       // copy under lock, invoke without lock to avoid deadlocks
       std::vector<callback_t> snapshot;
@@ -40,6 +54,30 @@ namespace utils
         if (cb)
         {
           cb(ev);
+        }
+      }
+    }
+
+    // Emit for void payload (no data)
+    template <typename T = EventT,
+              typename std::enable_if<std::is_void<T>::value, int>::type = 0>
+    void emit()
+    {
+      // copy under lock, invoke without lock to avoid deadlocks
+      std::vector<callback_t> snapshot;
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        snapshot.reserve(subscribers_.size());
+        for (const auto& s : subscribers_)
+        {
+          snapshot.push_back(s.callback);
+        }
+      }
+      for (auto& cb : snapshot)
+      {
+        if (cb)
+        {
+          cb();
         }
       }
     }

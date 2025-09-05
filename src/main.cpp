@@ -13,10 +13,10 @@ int main(int argc, char* argv[])
   // Start UDP networking
   net::udp::app_net::instance().start();
 
-  services::main_loop main_loop{};
   services::service_locator::instance().main_loop =
-      std::make_unique<services::main_loop>(main_loop);
+      std::make_unique<services::main_loop>();
 
+  auto& main_loop = *services::service_locator::instance().main_loop;
   main_loop.init();
   main_loop.run();
   main_loop.cleanup();

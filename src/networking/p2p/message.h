@@ -1,11 +1,13 @@
 #pragma once
 
-#include <string>
 #include "networking/p2p/peer.h"
+
+#include <string>
 
 namespace p2p
 {
-  class message {
+  class message
+  {
   public:
     message();
     ~message();

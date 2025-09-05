@@ -4,6 +4,7 @@
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/receiver/receiver_scene.h"
 #include "gui/scenes/sender/sender_scene.h"
+#include "networking/p2p/udp_broadcast_server.h"
 #include "networking/udp/app_net.h"
 #include "store.h"
 

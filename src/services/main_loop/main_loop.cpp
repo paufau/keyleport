@@ -2,6 +2,7 @@
 
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/home/home_scene.h"
+#include "services/service_locator.h"
 
 namespace services
 {
@@ -18,6 +19,13 @@ namespace services
     // TODO store gui reference in service locator
     gui::framework::init_window();
     gui::framework::set_window_scene<HomeScene>();
+
+    // Init each service
+    for (const auto& service :
+         service_locator::instance().repository.get_services())
+    {
+      service->init();
+    }
   }
 
   void main_loop::run()
@@ -31,12 +39,26 @@ namespace services
       {
         shutdown();
       }
+
+      // Update each service
+      for (const auto& service :
+           service_locator::instance().repository.get_services())
+      {
+        service->update();
+      }
     }
   }
 
   void main_loop::cleanup()
   {
     gui::framework::deinit_window();
+
+    // Cleanup each service
+    for (const auto& service :
+         service_locator::instance().repository.get_services())
+    {
+      service->cleanup();
+    }
   }
 
   void main_loop::shutdown()

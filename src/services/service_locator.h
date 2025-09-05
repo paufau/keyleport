@@ -1,6 +1,8 @@
 #pragma once
 
 #include "./main_loop/main_loop.h"
+#include "services_repository.h"
+
 #include <memory>
 
 namespace services
@@ -14,10 +16,11 @@ namespace services
       return instance;
     }
 
-  std::unique_ptr<services::main_loop> main_loop;
+    std::unique_ptr<services::main_loop> main_loop;
+    services_repository repository;
 
   private:
     service_locator() {}
     ~service_locator() {}
   };
-} // namespace service_locator
+} // namespace services
