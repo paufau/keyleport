@@ -17,4 +17,14 @@ namespace p2p
   {
     port_ = port;
   }
+
+  peer udp_client_configuration::get_peer() const
+  {
+    return peer_;
+  }
+
+  void udp_client_configuration::set_peer(const peer& p)
+  {
+    peer_ = p;
+  }
 } // namespace p2p
