@@ -6,11 +6,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+function(kp_log MSG)
+  string(TIMESTAMP _ts "%Y-%m-%d %H:%M:%S")
+  message(STATUS "[${_ts}] ${MSG}")
+endfunction()
+
+kp_log("Configuring keyleport on ${CMAKE_SYSTEM_NAME} with CMake ${CMAKE_VERSION}; Generator: ${CMAKE_GENERATOR}")
+
 file(GLOB_RECURSE KEYLEPORT_SOURCES CONFIGURE_DEPENDS
   src/*.cpp
 )
+list(LENGTH KEYLEPORT_SOURCES _kp_src_globbed)
+kp_log("Globbed src/*.cpp -> ${_kp_src_globbed} sources")
 
-#
 # Platform-aware implementation selector
 #
 # For any header under src/, prefer an implementation in a platform subfolder
@@ -86,17 +94,24 @@ if(WIN32)
 endif()
 
 add_executable(keyleport ${KEYLEPORT_SOURCES})
+list(LENGTH KEYLEPORT_SOURCES _kp_src_len)
+kp_log("Target 'keyleport' created with ${_kp_src_len} sources")
 
 target_include_directories(keyleport PRIVATE src)
-
 
 if(APPLE OR UNIX)
   find_package(PkgConfig QUIET)
   if(PkgConfig_FOUND)
+    kp_log("Checking SDL3 via pkg-config")
     pkg_check_modules(SDL3 QUIET sdl3)
     if(SDL3_FOUND)
+      list(LENGTH SDL3_INCLUDE_DIRS _sdl_inc_count)
+      list(LENGTH SDL3_LINK_LIBRARIES _sdl_lib_count)
+      kp_log("SDL3 found via pkg-config: ${_sdl_inc_count} include dirs, ${_sdl_lib_count} libs")
       target_include_directories(keyleport PRIVATE ${SDL3_INCLUDE_DIRS})
       target_link_libraries(keyleport PRIVATE ${SDL3_LINK_LIBRARIES})
+    else()
+      kp_log("SDL3 not found via pkg-config; continuing without it")
     endif()
   endif()
 endif()
@@ -114,22 +129,26 @@ endif()
 
 # Require nlohmann_json via FetchContent (header-only)
 include(FetchContent)
+kp_log("Preparing nlohmann_json (FetchContent)")
 FetchContent_Declare(
   nlohmann_json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
   GIT_TAG v3.11.3
 )
 FetchContent_MakeAvailable(nlohmann_json)
+kp_log("nlohmann_json available")
 target_link_libraries(keyleport PRIVATE nlohmann_json::nlohmann_json enet)
 
 # ENet (reliable/unreliable UDP library)
 include(FetchContent)
+kp_log("Preparing ENet (FetchContent)")
 FetchContent_Declare(
   enet
   GIT_REPOSITORY https://github.com/lsalzman/enet.git
   GIT_TAG v1.3.17
 )
 FetchContent_Populate(enet)
+kp_log("ENet populated at: ${enet_SOURCE_DIR}")
 # Build ENet manually as a static lib to avoid upstream CMake policy issues
 set(ENET_PLATFORM_SRC ${enet_SOURCE_DIR}/unix.c)
 if(WIN32)
@@ -153,16 +172,19 @@ elseif(WIN32)
   target_link_libraries(enet PUBLIC ws2_32 winmm)
 endif()
 target_link_libraries(keyleport PRIVATE enet)
+kp_log("ENet static library added and linked")
 
 # Dear ImGui (core + optional SDL3 backend)
 option(IMGUI_BUILD_DEMO "Build Dear ImGui demo file" OFF)
 include(FetchContent)
+kp_log("Preparing Dear ImGui (FetchContent)")
 FetchContent_Declare(
   imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
   GIT_TAG v1.91.0
 )
 FetchContent_MakeAvailable(imgui)
+kp_log("Dear ImGui available")
 
 # Create a small static lib for core ImGui sources
 if(DEFINED imgui_SOURCE_DIR)
