@@ -1,5 +1,7 @@
 #pragma once
 
+#include "networking/p2p/message.h"
+
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -10,6 +12,8 @@ namespace services
   public:
     std::string __typename;
     std::string payload;
+
+    p2p::message meta;
 
     inline std::string encode() const
     {

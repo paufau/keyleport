@@ -18,11 +18,11 @@ namespace services
       return pkg.__typename == __typename;
     }
 
-    std::string ip_address;
+    std::string device_id;
 
     inline std::string encode() const
     {
-      nlohmann::json j{{"ip_address", ip_address}};
+      nlohmann::json j{{"device_id", device_id}};
       return j.dump();
     }
 
@@ -37,11 +37,11 @@ namespace services
             << std::endl;
         return p;
       }
-      if (j.contains("ip_address") && j["ip_address"].is_string())
+      if (j.contains("device_id") && j["device_id"].is_string())
       {
-        p.ip_address = j.value("ip_address", std::string{});
-        std::cout << "[become_receiver_package] Decoded ip_address='"
-                  << p.ip_address << "'" << std::endl;
+        p.device_id = j.value("device_id", std::string{});
+        std::cout << "[become_receiver_package] Decoded device_id='"
+                  << p.device_id << "'" << std::endl;
       }
       return p;
     }

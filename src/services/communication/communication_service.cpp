@@ -36,9 +36,12 @@ namespace services
           }
 
           typed_package package = typed_package::decode(msg.get_payload());
+          package.meta = msg;
+
           std::cout << "[communication_service] Decoded package type='"
                     << package.__typename
                     << "' payload_size=" << package.payload.size() << std::endl;
+
           on_package.emit(package);
         });
   }

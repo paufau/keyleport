@@ -86,7 +86,7 @@ void services::discovery_service::broadcast_own_state()
   if (should_broadcast && broadcast_client_)
   {
     last_broadcast_time_ms_ = static_cast<int>(now);
-    broadcast_client_->broadcast(self_peer_.encode());
+    broadcast_client_->broadcast(self_peer.encode());
   }
 }
 
@@ -108,11 +108,11 @@ void services::discovery_service::update_connection_candidates()
 
 void services::discovery_service::init()
 {
-  self_peer_.device_id = get_random_id();
-  self_peer_.device_name = get_device_name();
-  self_peer_.ip_address = self_ip_address_;
-  self_peer_.platform = get_platform();
-  self_peer_.state = discovery_peer_state::idle;
+  self_peer.device_id = get_random_id();
+  self_peer.device_name = get_device_name();
+  self_peer.ip_address = self_ip_address_;
+  self_peer.platform = get_platform();
+  self_peer.state = discovery_peer_state::idle;
 
   p2p::udp_server_configuration config;
   config.set_port(default_peer_port_);

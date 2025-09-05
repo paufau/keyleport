@@ -3,6 +3,7 @@
 #include "networking/p2p/message.h"
 #include "networking/p2p/peer.h"
 
+#include <chrono>
 #include <enet/enet.h>
 #include <iostream>
 
@@ -124,6 +125,62 @@ namespace p2p
     send_impl(std::move(msg), false);
   }
 
+  unsigned long long udp_client::now_ms() const
+  {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+  }
+
+  bool udp_client::ensure_connected()
+  {
+    // Already connected
+    if (peer_ && peer_->state == ENET_PEER_STATE_CONNECTED)
+    {
+      return true;
+    }
+
+    // If we have a stale peer pointer, reset it
+    if (peer_ && peer_->state != ENET_PEER_STATE_CONNECTED)
+    {
+      enet_peer_reset(peer_);
+      peer_ = nullptr;
+    }
+
+    unsigned long long now = now_ms();
+    if (last_connect_attempt_ms_ != 0 &&
+        static_cast<long long>(now - last_connect_attempt_ms_) <
+            reconnect_interval_ms_)
+    {
+      return false; // too soon to retry
+    }
+    last_connect_attempt_ms_ = now;
+
+    const std::string ip = config_.get_peer().get_ip_address();
+    const int port = config_.get_port();
+    if (ip.empty() || port <= 0)
+    {
+      std::cerr << "[udp_client] Cannot connect: invalid peer info"
+                << std::endl;
+      return false;
+    }
+    std::cout << "[udp_client] Attempting connect to " << ip << ':' << port
+              << std::endl;
+    peer_ = connect_peer(host_, ip, port, connect_timeout_ms_);
+    if (!peer_ || peer_->state != ENET_PEER_STATE_CONNECTED)
+    {
+      std::cerr << "[udp_client] Connect attempt failed" << std::endl;
+      if (peer_ && peer_->state != ENET_PEER_STATE_CONNECTED)
+      {
+        enet_peer_reset(peer_);
+        peer_ = nullptr;
+      }
+      return false;
+    }
+    std::cout << "[udp_client] Connected" << std::endl;
+    return true;
+  }
+
   void udp_client::send_impl(message msg, bool is_reliable)
   {
     const std::string payload = msg.get_payload();
@@ -146,34 +203,28 @@ namespace p2p
     }
 
     // Lazy connect on first send only
-    if (!peer_)
+    // Poll for any disconnect events quickly (non-blocking)
+    if (host_)
     {
-      const std::string ip = config_.get_peer().get_ip_address();
-      const int port = config_.get_port();
-      if (ip.empty() || port <= 0)
+      ENetEvent ev;
+      while (enet_host_service(host_, &ev, 0) > 0)
       {
-        std::cerr << "[udp_client] Invalid peer ip or port (" << ip << ':'
-                  << port << ")" << std::endl;
-        return;
-      }
-      std::cout << "[udp_client] Connecting to " << ip << ':' << port
-                << std::endl;
-      peer_ = connect_peer(host_, ip, port);
-      if (!peer_)
-      {
-        std::cerr << "[udp_client] Failed to connect" << std::endl;
-      }
-      else
-      {
-        std::cout << "[udp_client] Connected" << std::endl;
+        if (ev.type == ENET_EVENT_TYPE_DISCONNECT)
+        {
+          std::cerr << "[udp_client] Detected disconnect" << std::endl;
+          if (peer_)
+          {
+            enet_peer_reset(peer_);
+            peer_ = nullptr;
+          }
+        }
       }
     }
 
-    // Do not attempt reconnects if we already have a peer but it's not
-    // connected
-    if (!peer_ || peer_->state != ENET_PEER_STATE_CONNECTED)
+    if (!ensure_connected())
     {
-      std::cerr << "[udp_client] Peer not connected" << std::endl;
+      std::cerr << "[udp_client] Cannot send: not connected (will retry)"
+                << std::endl;
       return;
     }
 

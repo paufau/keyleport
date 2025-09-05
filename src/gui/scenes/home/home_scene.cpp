@@ -4,6 +4,7 @@
 #include "gui/framework/ui_window.h"
 #include "gui/scenes/receiver/receiver_scene.h"
 #include "gui/scenes/sender/sender_scene.h"
+#include "networking/p2p/message.h"
 #include "networking/p2p/peer.h"
 #include "services/communication/communication_service.h"
 #include "services/communication/packages/become_receiver_package.h"
@@ -49,26 +50,26 @@ void HomeScene::didMount()
         auto become_receiver =
             services::become_receiver_package::decode(package.payload);
 
-        std::cout << "[home_scene] Decoded become_receiver ip_address='"
-                  << become_receiver.ip_address << "'" << std::endl;
+        std::cout << "[home_scene] Decoded become_receiver device_id='"
+                  << become_receiver.device_id << "'" << std::endl;
 
-        // Try to find the device by IP in the store's available devices
+        // Try to find the device by ID in the store's available devices
         const auto devices = store::connection_state().available_devices.get();
 
         std::shared_ptr<entities::ConnectionCandidate> candidate;
-        if (auto it =
-                std::find_if(devices.begin(), devices.end(), [&](const auto& d)
-                             { return d.ip() == become_receiver.ip_address; });
+        if (auto it = std::find_if(
+                devices.begin(), devices.end(), [&](const auto& d)
+                { return d.ip() == package.meta.get_from().get_ip_address(); });
             it != devices.end())
         {
           candidate = std::make_shared<entities::ConnectionCandidate>(*it);
-          std::cout << "[home_scene] Matched candidate for ip="
-                    << become_receiver.ip_address << std::endl;
+          std::cout << "[home_scene] Matched candidate for device_id="
+                    << become_receiver.device_id << std::endl;
         }
         else
         {
           std::cerr << "Received become_receiver package from unknown device: "
-                    << become_receiver.ip_address << std::endl;
+                    << become_receiver.device_id << std::endl;
           return;
         }
 
@@ -78,10 +79,10 @@ void HomeScene::didMount()
                   << std::endl;
 
         // Pin the communication service to this peer
-        communication_service_->pin_connection(
-            p2p::peer(become_receiver.ip_address));
-        std::cout << "[home_scene] Pinned communication to "
-                  << become_receiver.ip_address << std::endl;
+        communication_service_->pin_connection(p2p::peer(candidate->ip()));
+
+        std::cout << "[home_scene] Pinned communication to " << candidate->ip()
+                  << std::endl;
 
         // Switch to the receiver scene
         gui::framework::post_to_ui(
@@ -152,11 +153,13 @@ void HomeScene::render()
         // Send become_receiver package
         services::typed_package pkg;
         pkg.__typename = services::become_receiver_package::__typename;
+
         services::become_receiver_package become_receiver_pkg;
-        become_receiver_pkg.ip_address = p2p::peer::self().get_ip_address();
+        become_receiver_pkg.device_id = discovery_service_->self_peer.device_id;
         pkg.payload = become_receiver_pkg.encode();
+
         std::cout << "[home_scene] Sending become_receiver to " << d.ip()
-                  << " self_ip=" << become_receiver_pkg.ip_address
+                  << " self_id=" << become_receiver_pkg.device_id
                   << " encoded_size=" << pkg.payload.size() << std::endl;
         communication_service_->send_package_reliable(pkg);
 

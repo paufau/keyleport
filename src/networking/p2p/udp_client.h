@@ -21,6 +21,14 @@ namespace p2p
     ENetHost* host_{nullptr};
     ENetPeer* peer_{nullptr};
 
+    // Reconnect support
+    unsigned long long last_connect_attempt_ms_{0};
+    int reconnect_interval_ms_{1000}; // 1s between attempts
+    int connect_timeout_ms_{500};
+
+    bool ensure_connected();
+    unsigned long long now_ms() const;
+
     void send_impl(message message, bool is_reliable);
   };
 } // namespace p2p
