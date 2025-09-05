@@ -36,6 +36,7 @@ namespace p2p
   {
     if (enet_initialize() != 0)
     {
+      std::cerr << "[udp_server] enet_initialize failed" << std::endl;
       return;
     }
     enet_inited_ = true;
@@ -48,6 +49,16 @@ namespace p2p
                              /* channel limit */ 2,
                              /* incoming bandwidth */ 0,
                              /* outgoing bandwidth */ 0);
+    if (!host_)
+    {
+      std::cerr << "[udp_server] Failed to create ENet host on port "
+                << config_.get_port() << std::endl;
+    }
+    else
+    {
+      std::cout << "[udp_server] Listening on port " << config_.get_port()
+                << std::endl;
+    }
   }
 
   udp_server::~udp_server()
@@ -68,6 +79,8 @@ namespace p2p
   {
     if (!host_)
     {
+      std::cerr << "[udp_server] poll_events called with null host"
+                << std::endl;
       return;
     }
 
@@ -85,6 +98,10 @@ namespace p2p
           continue;
         }
 
+        std::cout << "[udp_server] Received packet of length "
+                  << (event.packet ? event.packet->dataLength : 0)
+                  << " bytes from " << from_ip << std::endl;
+
         message msg;
         p2p::peer from_peer{from_ip};
         p2p::peer to_peer = p2p::peer::self();
@@ -95,8 +112,11 @@ namespace p2p
         {
           const char* data = reinterpret_cast<const char*>(event.packet->data);
           msg.set_payload(std::string(data, event.packet->dataLength));
+          std::cout << "[udp_server] Payload (truncated 256): "
+                    << msg.get_payload().substr(0, 256) << std::endl;
         }
 
+        std::cout << "[udp_server] Emitting on_message" << std::endl;
         on_message.emit(msg);
         destroy_packet(event.packet);
       }

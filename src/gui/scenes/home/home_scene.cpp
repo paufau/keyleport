@@ -42,8 +42,15 @@ void HomeScene::didMount()
           return;
         }
 
+        std::cout << "[home_scene] Received package type='"
+                  << package.__typename << "' size=" << package.payload.size()
+                  << std::endl;
+
         auto become_receiver =
             services::become_receiver_package::decode(package.payload);
+
+        std::cout << "[home_scene] Decoded become_receiver ip_address='"
+                  << become_receiver.ip_address << "'" << std::endl;
 
         // Try to find the device by IP in the store's available devices
         const auto devices = store::connection_state().available_devices.get();
@@ -55,6 +62,8 @@ void HomeScene::didMount()
             it != devices.end())
         {
           candidate = std::make_shared<entities::ConnectionCandidate>(*it);
+          std::cout << "[home_scene] Matched candidate for ip="
+                    << become_receiver.ip_address << std::endl;
         }
         else
         {
@@ -65,14 +74,20 @@ void HomeScene::didMount()
 
         // Accept the connection request
         store::connection_state().connected_device.set(candidate);
+        std::cout << "[home_scene] Set connected_device ip=" << candidate->ip()
+                  << std::endl;
 
         // Pin the communication service to this peer
         communication_service_->pin_connection(
             p2p::peer(become_receiver.ip_address));
+        std::cout << "[home_scene] Pinned communication to "
+                  << become_receiver.ip_address << std::endl;
 
         // Switch to the receiver scene
         gui::framework::post_to_ui(
             [] { gui::framework::set_window_scene<ReceiverScene>(); });
+        std::cout << "[home_scene] Posted UI task to switch to ReceiverScene"
+                  << std::endl;
       });
 }
 
@@ -125,8 +140,12 @@ void HomeScene::render()
       ImGui::BeginDisabled(d.is_busy());
       if (ImGui::Button((std::string("Connect##") + std::to_string(i)).c_str()))
       {
+        std::cout << "[home_scene] Connect clicked for device ip=" << d.ip()
+                  << " name=" << d.name() << std::endl;
         store::connection_state().connected_device.set(
             std::make_shared<entities::ConnectionCandidate>(d));
+        std::cout << "[home_scene] connected_device set ip=" << d.ip()
+                  << std::endl;
 
         // Pin the communication service to this peer
         communication_service_->pin_connection(p2p::peer(d.ip()));
@@ -136,10 +155,15 @@ void HomeScene::render()
         services::become_receiver_package become_receiver_pkg;
         become_receiver_pkg.ip_address = p2p::peer::self().get_ip_address();
         pkg.payload = become_receiver_pkg.encode();
+        std::cout << "[home_scene] Sending become_receiver to " << d.ip()
+                  << " self_ip=" << become_receiver_pkg.ip_address
+                  << " encoded_size=" << pkg.payload.size() << std::endl;
         communication_service_->send_package_reliable(pkg);
 
         gui::framework::post_to_ui(
             [] { gui::framework::set_window_scene<SenderScene>(); });
+        std::cout << "[home_scene] Posted UI task to switch to SenderScene"
+                  << std::endl;
       }
       ImGui::EndDisabled();
       ++i;

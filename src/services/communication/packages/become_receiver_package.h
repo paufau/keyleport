@@ -2,6 +2,7 @@
 
 #include "services/communication/typed_package.h"
 
+#include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -31,11 +32,16 @@ namespace services
       auto j = nlohmann::json::parse(s, nullptr, false);
       if (!j.is_object())
       {
+        std::cerr
+            << "[become_receiver_package] Decode failed: not a JSON object"
+            << std::endl;
         return p;
       }
       if (j.contains("ip_address") && j["ip_address"].is_string())
       {
         p.ip_address = j.value("ip_address", std::string{});
+        std::cout << "[become_receiver_package] Decoded ip_address='"
+                  << p.ip_address << "'" << std::endl;
       }
       return p;
     }

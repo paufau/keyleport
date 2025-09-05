@@ -4,6 +4,7 @@
 #include "networking/p2p/peer.h"
 
 #include <enet/enet.h>
+#include <iostream>
 
 namespace p2p
 {
@@ -82,6 +83,10 @@ namespace p2p
     // Create a client host once
     host_ = enet_host_create(/*address*/ nullptr, /*peers*/ 1, /*channels*/ 2,
                              0, 0);
+    if (!host_)
+    {
+      std::cerr << "[udp_client] Failed to create client host" << std::endl;
+    }
   }
 
   udp_client::~udp_client()
@@ -124,6 +129,7 @@ namespace p2p
     const std::string payload = msg.get_payload();
     if (payload.empty())
     {
+      std::cerr << "[udp_client] Attempt to send empty payload" << std::endl;
       return;
     }
 
@@ -134,6 +140,7 @@ namespace p2p
                                0, 0);
       if (!host_)
       {
+        std::cerr << "[udp_client] Could not recreate host" << std::endl;
         return;
       }
     }
@@ -145,15 +152,28 @@ namespace p2p
       const int port = config_.get_port();
       if (ip.empty() || port <= 0)
       {
+        std::cerr << "[udp_client] Invalid peer ip or port (" << ip << ':'
+                  << port << ")" << std::endl;
         return;
       }
+      std::cout << "[udp_client] Connecting to " << ip << ':' << port
+                << std::endl;
       peer_ = connect_peer(host_, ip, port);
+      if (!peer_)
+      {
+        std::cerr << "[udp_client] Failed to connect" << std::endl;
+      }
+      else
+      {
+        std::cout << "[udp_client] Connected" << std::endl;
+      }
     }
 
     // Do not attempt reconnects if we already have a peer but it's not
     // connected
     if (!peer_ || peer_->state != ENET_PEER_STATE_CONNECTED)
     {
+      std::cerr << "[udp_client] Peer not connected" << std::endl;
       return;
     }
 
@@ -164,6 +184,7 @@ namespace p2p
         enet_packet_create(payload.data(), payload.size(), flags);
     if (!packet)
     {
+      std::cerr << "[udp_client] Failed to create ENet packet" << std::endl;
       return;
     }
 
@@ -171,9 +192,13 @@ namespace p2p
     {
       enet_packet_destroy(packet);
       // keep state as-is; no reconnects here
+      std::cerr << "[udp_client] enet_peer_send failed" << std::endl;
       return;
     }
     enet_host_flush(host_);
+    std::cout << "[udp_client] Sent " << payload.size()
+              << (is_reliable ? " reliable" : " unreliable") << " bytes"
+              << std::endl;
   }
 
 } // namespace p2p
