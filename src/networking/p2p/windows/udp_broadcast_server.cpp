@@ -34,7 +34,7 @@ namespace p2p
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(static_cast<uint16_t>(config_.port()));
+    addr.sin_port = htons(static_cast<uint16_t>(config_.get_port()));
     if (::bind(sock_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) ==
         SOCKET_ERROR)
     {
@@ -70,8 +70,8 @@ namespace p2p
       char buf[1500];
       sockaddr_in from{};
       int from_len = sizeof(from);
-      int n = ::recvfrom(sock_, buf, sizeof(buf), 0,
-    addr.sin_port = htons(static_cast<uint16_t>(config_.get_port()));
+      int n = ::recvfrom(sock_, buf, static_cast<int>(sizeof(buf)), 0,
+                         reinterpret_cast<sockaddr*>(&from), &from_len);
       if (n <= 0)
       {
         if (WSAGetLastError() == WSAEWOULDBLOCK)
