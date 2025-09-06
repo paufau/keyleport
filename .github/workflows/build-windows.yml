@@ -51,6 +51,16 @@ jobs:
         shell: bash
         run: ./vcpkg/vcpkg --vcpkg-root ./vcpkg install sdl3 --triplet x64-windows
 
+      - name: Restore CMake/Ninja build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+          key: ${{ runner.os }}-build-ninja-release-x64-windows-v1
+          restore-keys: |
+            ${{ runner.os }}-build-ninja-release-x64-windows-
+            ${{ runner.os }}-build-
+
       - name: Configure (CMake + Ninja)
         run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake
 
