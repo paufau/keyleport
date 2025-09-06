@@ -85,8 +85,11 @@ namespace p2p
     }
 
     ENetEvent event;
-    // Service with zero timeout to pump pending events without blocking long
-    while (enet_host_service(host_, &event, 0) > 0)
+    // Service pending events with a small per-call budget to avoid hogging UI
+    // thread
+    const int kMaxPerPoll = 16; // cap processed events per frame
+    int processed = 0;
+    while (processed < kMaxPerPoll && enet_host_service(host_, &event, 0) > 0)
     {
       if (event.type == ENET_EVENT_TYPE_RECEIVE)
       {
@@ -98,9 +101,10 @@ namespace p2p
           continue;
         }
 
-        std::cout << "[udp_server] Received packet of length "
-                  << (event.packet ? event.packet->dataLength : 0)
-                  << " bytes from " << from_ip << std::endl;
+        // Avoid excessive logging on hot path; uncomment for debugging
+        // std::cout << "[udp_server] Received packet of length "
+        //           << (event.packet ? event.packet->dataLength : 0)
+        //           << " bytes from " << from_ip << std::endl;
 
         message msg;
         p2p::peer from_peer{from_ip};
@@ -112,14 +116,15 @@ namespace p2p
         {
           const char* data = reinterpret_cast<const char*>(event.packet->data);
           msg.set_payload(std::string(data, event.packet->dataLength));
-          std::cout << "[udp_server] Payload (truncated 256): "
-                    << msg.get_payload().substr(0, 256) << std::endl;
+          // std::cout << "[udp_server] Payload (truncated 256): "
+          //           << msg.get_payload().substr(0, 256) << std::endl;
         }
 
-        std::cout << "[udp_server] Emitting on_message" << std::endl;
+        // std::cout << "[udp_server] Emitting on_message" << std::endl;
         on_message.emit(msg);
         destroy_packet(event.packet);
       }
+      ++processed;
     }
   }
 } // namespace p2p
