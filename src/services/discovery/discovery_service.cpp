@@ -47,7 +47,7 @@ void services::discovery_service::remove_stale_peers()
   }
 }
 
-void services::discovery_service::update_peer_state(discovery_peer& peer)
+bool services::discovery_service::update_peer_state(discovery_peer& peer)
 {
   auto it = std::find_if(discovered_peers.begin(), discovered_peers.end(),
                          [&peer](const discovery_peer& p)
@@ -64,28 +64,29 @@ void services::discovery_service::update_peer_state(discovery_peer& peer)
     {
       peer_last_seen_timestamps_[index] = now;
     }
+    remove_stale_peers();
+    return false;
   }
   else
   {
     // Add new peer
     discovered_peers.push_back(peer);
     peer_last_seen_timestamps_.push_back(now);
+    remove_stale_peers();
+    return true;
   }
-
-  remove_stale_peers();
 }
 
 void services::discovery_service::broadcast_own_state()
 {
   uint64_t now = utils::date::now();
-  bool should_broadcast =
-      now - static_cast<uint64_t>(last_broadcast_time_ms_) >
-          static_cast<uint64_t>(state_broadcast_interval_ms_) ||
-      last_broadcast_time_ms_ == 0;
+  bool should_broadcast = (last_broadcast_time_ms_ == 0) ||
+                          (now - last_broadcast_time_ms_ >
+                           static_cast<uint64_t>(state_broadcast_interval_ms_));
 
   if (should_broadcast && broadcast_client_)
   {
-    last_broadcast_time_ms_ = static_cast<int>(now);
+    last_broadcast_time_ms_ = now;
     broadcast_client_->broadcast(self_peer.encode());
   }
 }
@@ -132,14 +133,27 @@ void services::discovery_service::init()
         // the other side put in payload (could be blank).
         peer.ip_address = msg.get_from().get_ip_address();
 
-        if ((peer.ip_address == self_ip_address_))
+        if ((peer.ip_address == self_ip_address_) ||
+            (peer.device_id == self_peer.device_id))
         {
           return;
         }
 
-        update_peer_state(peer);
+        bool is_new = update_peer_state(peer);
+        // Update UI candidates right away so the device appears instantly.
+        update_connection_candidates();
+        // Optionally, when we first see a new peer, immediately broadcast our
+        // state to accelerate mutual discovery convergence instead of waiting
+        // for the interval.
+        if (is_new)
+        {
+          broadcast_own_state();
+        }
       });
 
+  broadcast_own_state();
+  // Send a second immediate broadcast as a startup burst to accelerate peer
+  // discovery on networks where broadcast delivery may be lossy.
   broadcast_own_state();
 }
 

@@ -31,11 +31,12 @@ namespace services
     std::vector<uint64_t> peer_last_seen_timestamps_;
 
     void remove_stale_peers();
-    void update_peer_state(discovery_peer& peer);
+    // Updates or inserts a peer. Returns true if a new peer was added.
+    bool update_peer_state(discovery_peer& peer);
     void broadcast_own_state();
     void update_connection_candidates();
 
-    int last_broadcast_time_ms_ = 0;
+    uint64_t last_broadcast_time_ms_ = 0;
     int state_broadcast_interval_ms_ = 5000;
     int peer_stale_timeout_ms_ = 15000;
     int default_peer_port_ = 8800;
