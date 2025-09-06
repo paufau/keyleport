@@ -92,6 +92,7 @@ namespace p2p
 
   udp_client::~udp_client()
   {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (peer_)
     {
       enet_peer_disconnect(peer_, 0);
@@ -183,6 +184,7 @@ namespace p2p
 
   void udp_client::send_impl(message msg, bool is_reliable)
   {
+    std::lock_guard<std::mutex> lock(mutex_);
     const std::string payload = msg.get_payload();
     if (payload.empty())
     {
@@ -254,6 +256,7 @@ namespace p2p
 
   void udp_client::flush_pending_messages()
   {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (host_)
     {
       enet_host_flush(host_);
