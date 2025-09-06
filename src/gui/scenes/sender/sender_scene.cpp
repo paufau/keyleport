@@ -65,7 +65,7 @@ void SenderScene::render()
   ImGui::Begin("Sender", nullptr, rootFlags);
 
   // Safely read the currently connected device (may be null)
-  const auto device = store::connection_state().connected_device.get();
+  const auto device = store::connection_state().connected_device.value();
 
   if (is_mouse_contained_)
   {

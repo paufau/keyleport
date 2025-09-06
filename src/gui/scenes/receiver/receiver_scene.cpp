@@ -81,7 +81,7 @@ void ReceiverScene::render()
   ImGui::Begin("Receiver", nullptr, rootFlags);
 
   // Resolve text to display
-  const auto device = store::connection_state().connected_device.get();
+  const auto device = store::connection_state().connected_device.value();
   std::string text = device
                          ? (std::string("Receiving input from ") + device->ip())
                          : std::string("Receiving input from <no device>");

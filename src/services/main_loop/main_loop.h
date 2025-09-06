@@ -2,6 +2,9 @@
 
 #include "utils/event_emitter/event_emitter.h"
 
+#include <atomic>
+#include <thread>
+
 namespace services
 {
   class main_loop
@@ -18,5 +21,7 @@ namespace services
 
   private:
     bool running_ = false;
+    std::thread services_thread_;
+    std::atomic<bool> services_running_{false};
   };
 } // namespace services

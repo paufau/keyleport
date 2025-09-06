@@ -24,7 +24,7 @@
 void HomeScene::didMount()
 {
   // Reset devices list
-  store::connection_state().available_devices.get().clear();
+  store::connection_state().available_devices.set({});
 
   discovery_service_ = std::make_shared<services::discovery_service>();
   services::service_locator::instance().repository.add_service(
@@ -54,7 +54,8 @@ void HomeScene::didMount()
                   << become_receiver.device_id << "'" << std::endl;
 
         // Try to find the device by ID in the store's available devices
-        const auto devices = store::connection_state().available_devices.get();
+        const auto devices =
+            store::connection_state().available_devices.value();
 
         std::shared_ptr<entities::ConnectionCandidate> candidate;
         if (auto it = std::find_if(
@@ -108,7 +109,7 @@ void HomeScene::render()
   ImGui::Separator();
 
   // Snapshot to avoid holding a mutable ref during UI
-  const auto devices = store::connection_state().available_devices.get();
+  const auto devices = store::connection_state().available_devices.value();
 
   if (devices.empty())
   {

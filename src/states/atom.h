@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -18,29 +19,36 @@ namespace states
     Atom() = default;
     explicit Atom(T initial) : value_(new T(std::move(initial))) {}
 
-    // Get current value
-    // Non-const accessor to allow mutation of the contained value.
-    // Note: requires the Atom to have been assigned a value via set() or
-    // constructed with an initial value.
-    T& get() { return *value_; }
-    // Const accessor retained for read-only use sites.
-    const T& get() const { return *value_; }
+    // Thread-safe snapshot getter (by value). If not set yet, returns
+    // default-constructed T.
+    T value() const
+    {
+      std::lock_guard<std::mutex> lk(mtx_);
+      return value_ ? *value_ : T{};
+    }
 
     // Set value (lvalue/rvalue) and notify all subscribers
     void set(const T& v)
     {
-      value_.reset(new T(v));
+      {
+        std::lock_guard<std::mutex> lk(mtx_);
+        value_.reset(new T(v));
+      }
       notify_();
     }
     void set(T&& v)
     {
-      value_.reset(new T(std::move(v)));
+      {
+        std::lock_guard<std::mutex> lk(mtx_);
+        value_.reset(new T(std::move(v)));
+      }
       notify_();
     }
 
     // Subscribe to value changes; returns an id for optional unsubscription
     std::size_t subscribe(Callback cb)
     {
+      std::lock_guard<std::mutex> lk(mtx_);
       const std::size_t id = ++next_id_;
       listeners_.push_back(Listener{id, std::move(cb)});
       return id;
@@ -49,6 +57,7 @@ namespace states
     // Optional: remove a listener by id
     void unsubscribe(std::size_t id)
     {
+      std::lock_guard<std::mutex> lk(mtx_);
       for (auto it = listeners_.begin(); it != listeners_.end(); ++it)
       {
         if (it->id == id)
@@ -60,20 +69,32 @@ namespace states
     }
 
     // Remove all listeners
-    void clear_listeners() { listeners_.clear(); }
+    void clear_listeners()
+    {
+      std::lock_guard<std::mutex> lk(mtx_);
+      listeners_.clear();
+    }
 
   private:
     void notify_()
     {
-      if (!value_)
+      // Copy snapshot under lock then invoke callbacks without lock
+      std::vector<Listener> ls;
+      T snapshot{};
       {
-        return; // nothing to notify yet
+        std::lock_guard<std::mutex> lk(mtx_);
+        if (!value_)
+        {
+          return;
+        }
+        ls = listeners_;
+        snapshot = *value_;
       }
-      for (const auto& l : listeners_)
+      for (const auto& l : ls)
       {
         if (l.cb)
         {
-          l.cb(*value_);
+          l.cb(snapshot);
         }
       }
     }
@@ -84,6 +105,7 @@ namespace states
       Callback cb;
     };
 
+    mutable std::mutex mtx_;
     std::unique_ptr<T> value_; // defer construction until explicitly set
     std::vector<Listener> listeners_{};
     std::size_t next_id_ = 0;
