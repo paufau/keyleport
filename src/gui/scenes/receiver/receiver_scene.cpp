@@ -1,5 +1,6 @@
 #include "receiver_scene.h"
 
+#include "gui/framework/ui_dispatch.h"
 #include "gui/framework/ui_window.h"
 #include "keyboard/input_event.h"
 #include "keyboard/keyboard.h"
@@ -38,7 +39,16 @@ void ReceiverScene::didMount()
               auto ev =
                   services::keyboard_input_package::decode(package.payload)
                       .event;
-              emitter_ptr->emit(ev);
+
+              gui::framework::post_to_ui(
+                  [emitter_ptr, ev]
+                  {
+                    if (!emitter_ptr)
+                    {
+                      return;
+                    }
+                    emitter_ptr->emit(ev);
+                  });
             });
 
     std::cout << "[receiver_scene] Subscribed to communication_service with id "
