@@ -139,6 +139,8 @@ void services::discovery_service::init()
 
         update_peer_state(peer);
       });
+
+  broadcast_own_state();
 }
 
 void services::discovery_service::update()
