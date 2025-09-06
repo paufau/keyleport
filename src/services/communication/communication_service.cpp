@@ -49,6 +49,10 @@ namespace services
   void communication_service::update()
   {
     udp_server_->poll_events();
+    if (udp_client_)
+    {
+      udp_client_->flush_pending_messages();
+    }
   }
 
   void communication_service::cleanup()

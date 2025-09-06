@@ -13,6 +13,8 @@ namespace p2p
     udp_client(udp_client_configuration config);
     ~udp_client();
 
+    void flush_pending_messages();
+
     void send_reliable(message message);
     void send_unreliable(message message);
 

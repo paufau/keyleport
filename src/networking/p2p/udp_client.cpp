@@ -252,4 +252,12 @@ namespace p2p
               << std::endl;
   }
 
+  void udp_client::flush_pending_messages()
+  {
+    if (host_)
+    {
+      enet_host_flush(host_);
+    }
+  }
+
 } // namespace p2p
