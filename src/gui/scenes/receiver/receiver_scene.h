@@ -17,4 +17,5 @@ private:
   // Keyboard injection components
   std::unique_ptr<keyboard::Keyboard> kb_;
   std::unique_ptr<keyboard::Emitter> emitter_;
+  uint16_t communication_subscription_id_;
 };

@@ -1,6 +1,10 @@
 #include "sender.h"
 
 #include "keyboard/input_event.h"
+#include "services/communication/communication_service.h"
+#include "services/communication/packages/keyboard_input_package.h"
+#include "services/service_locator.h"
+#include "store.h"
 
 #include <atomic>
 #include <chrono>
@@ -14,14 +18,17 @@ namespace flows
 
   bool SenderFlow::start()
   {
-    // Ensure a session exists in UDP stack
-    // if (!net::udp::app_net::instance().has_active_session())
-    // {
-    //   std::cerr << "[sender] No active session" << std::endl;
-    //   return false;
-    // }
+    communication_service_ =
+        services::service_locator::instance()
+            .repository.get_service<services::communication_service>();
 
-    // Start loops
+    if (!communication_service_)
+    {
+      std::cerr << "[sender] Unable to start: communication_service not found"
+                << std::endl;
+      return false;
+    }
+
     moveAgg_.running.store(true, std::memory_order_relaxed);
     scrollAgg_.running.store(true, std::memory_order_relaxed);
     running_.store(true, std::memory_order_relaxed);
@@ -47,7 +54,7 @@ namespace flows
     {
       scrollThread_.join();
     }
-    // nothing specific to disconnect; session lifecycle managed by app_net
+    communication_service_ = nullptr;
   }
 
   void SenderFlow::push_event(const keyboard::InputEvent& ev)
@@ -68,9 +75,18 @@ namespace flows
       scrollAgg_.add(ev.dx, ev.dy);
       return;
     }
-    const std::string payload = keyboard::InputEventJSONConverter::encode(ev);
-    // Non-aggregated events: send reliably (ENet reliable channel)
-    // net::udp::app_net::instance().send_reliable(payload);
+
+    if (communication_service_)
+    {
+      communication_service_->send_package_reliable(
+          services::keyboard_input_package::build(ev));
+    }
+    else
+    {
+      std::cerr
+          << "[sender] Unable to send event: communication_service_ is null"
+          << std::endl;
+    }
   }
 
   void SenderFlow::push_event(const SDL_Event& sdl_ev)
@@ -99,7 +115,18 @@ namespace flows
       mv.dx = dx;
       mv.dy = dy;
       const std::string payload = keyboard::InputEventJSONConverter::encode(mv);
-      // net::udp::app_net::instance().send_unreliable(payload);
+
+      if (communication_service_)
+      {
+        communication_service_->send_package_unreliable(
+            services::keyboard_input_package::build(mv));
+      }
+      else
+      {
+        std::cerr
+            << "[sender] Unable to send move: communication_service_ is null"
+            << std::endl;
+      }
     }
   }
 
@@ -123,7 +150,18 @@ namespace flows
       sc.dx = sx;
       sc.dy = sy;
       const std::string payload = keyboard::InputEventJSONConverter::encode(sc);
-      // net::udp::app_net::instance().send_unreliable(payload);
+
+      if (communication_service_)
+      {
+        communication_service_->send_package_unreliable(
+            services::keyboard_input_package::build(sc));
+      }
+      else
+      {
+        std::cerr
+            << "[sender] Unable to send scroll: communication_service_ is null"
+            << std::endl;
+      }
     }
   }
 

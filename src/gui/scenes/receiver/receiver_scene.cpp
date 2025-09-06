@@ -3,9 +3,13 @@
 #include "gui/framework/ui_window.h"
 #include "keyboard/input_event.h"
 #include "keyboard/keyboard.h"
+#include "services/communication/communication_service.h"
+#include "services/communication/packages/keyboard_input_package.h"
+#include "services/service_locator.h"
 #include "store.h"
 
 #include <imgui.h>
+#include <iostream>
 
 void ReceiverScene::didMount()
 {
@@ -15,22 +19,53 @@ void ReceiverScene::didMount()
 
   // Subscribe to received data and emit as input events
   keyboard::Emitter* emitter_ptr = emitter_.get();
-  // net::udp::app_net::instance().set_on_receive(
-  //     [emitter_ptr](const std::string& payload)
-  //     {
-  //       if (!emitter_ptr || payload.empty())
-  //       {
-  //         return;
-  //       }
-  //       auto ev = keyboard::InputEventJSONConverter::decode(payload);
-  //       emitter_ptr->emit(ev);
-  //     });
+
+  auto communication_service =
+      services::service_locator::instance()
+          .repository.get_service<services::communication_service>();
+
+  if (communication_service)
+  {
+    communication_subscription_id_ =
+        communication_service->on_package.subscribe(
+            [emitter_ptr](const services::typed_package& package)
+            {
+              if (!emitter_ptr ||
+                  !services::keyboard_input_package::is(package))
+              {
+                return;
+              }
+              auto ev =
+                  services::keyboard_input_package::decode(package.payload)
+                      .event;
+              emitter_ptr->emit(ev);
+            });
+
+    std::cout << "[receiver_scene] Subscribed to communication_service with id "
+              << communication_subscription_id_ << std::endl;
+  }
+  else
+  {
+    std::cerr << "[receiver_scene] communication_service not found"
+              << std::endl;
+  }
 }
 
 void ReceiverScene::willUnmount()
 {
   emitter_.reset();
   kb_.reset();
+  auto communication_service =
+      services::service_locator::instance()
+          .repository.get_service<services::communication_service>();
+
+  if (communication_service)
+  {
+    communication_service->on_package.unsubscribe(
+        communication_subscription_id_);
+    std::cout << "[receiver_scene] Unsubscribed from communication_service id "
+              << communication_subscription_id_ << std::endl;
+  }
 }
 
 void ReceiverScene::render()

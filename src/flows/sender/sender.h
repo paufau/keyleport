@@ -2,6 +2,7 @@
 
 #include "keyboard/input_event.h"
 #include "move_aggregator.h"
+#include "services/communication/communication_service.h"
 
 #include <atomic>
 #include <memory>
@@ -36,6 +37,8 @@ namespace flows
     std::thread moveThread_;
     std::thread scrollThread_;
     std::atomic<bool> running_{false};
+
+    std::shared_ptr<services::communication_service> communication_service_;
   };
 
 } // namespace flows
