@@ -33,7 +33,8 @@ namespace services
     void remove_stale_peers();
     // Updates or inserts a peer. Returns true if a new peer was added.
     bool update_peer_state(discovery_peer& peer);
-    void broadcast_own_state();
+    // Broadcast our discovery state. If force is true, bypass interval gating.
+    void broadcast_own_state(bool force = false);
     void update_connection_candidates();
 
     uint64_t last_broadcast_time_ms_ = 0;

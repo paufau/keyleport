@@ -77,10 +77,10 @@ bool services::discovery_service::update_peer_state(discovery_peer& peer)
   }
 }
 
-void services::discovery_service::broadcast_own_state()
+void services::discovery_service::broadcast_own_state(bool force)
 {
   uint64_t now = utils::date::now();
-  bool should_broadcast = (last_broadcast_time_ms_ == 0) ||
+  bool should_broadcast = force || (last_broadcast_time_ms_ == 0) ||
                           (now - last_broadcast_time_ms_ >
                            static_cast<uint64_t>(state_broadcast_interval_ms_));
 
@@ -147,14 +147,14 @@ void services::discovery_service::init()
         // for the interval.
         if (is_new)
         {
-          broadcast_own_state();
+          broadcast_own_state(true);
         }
       });
 
-  broadcast_own_state();
+  broadcast_own_state(true);
   // Send a second immediate broadcast as a startup burst to accelerate peer
   // discovery on networks where broadcast delivery may be lossy.
-  broadcast_own_state();
+  broadcast_own_state(true);
 }
 
 void services::discovery_service::update()
