@@ -27,6 +27,7 @@ namespace services
     void send_package_unreliable(const typed_package& package);
 
     utils::event_emitter<services::typed_package> on_package;
+    utils::event_emitter<void> on_disconnect;
 
   private:
     std::shared_ptr<p2p::udp_server> udp_server_;

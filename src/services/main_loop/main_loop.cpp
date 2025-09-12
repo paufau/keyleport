@@ -26,7 +26,11 @@ namespace services
     {
       service->init();
     }
+  }
 
+  void main_loop::run()
+  {
+    running_ = true;
     // Start background services update loop
     services_running_ = true;
     services_thread_ = std::thread(
@@ -49,11 +53,6 @@ namespace services
             std::this_thread::sleep_for(1ms);
           }
         });
-  }
-
-  void main_loop::run()
-  {
-    running_ = true;
 
     while (running_)
     {
