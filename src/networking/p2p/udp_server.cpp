@@ -85,9 +85,9 @@ namespace p2p
     }
 
     ENetEvent event;
-    // Service pending events with a small per-call budget to avoid hogging UI
-    // thread
-    const int kMaxPerPoll = 16; // cap processed events per frame
+    // Service pending events with a bounded budget to avoid hogging UI thread,
+    // but high enough to keep latency low under bursts
+    const int kMaxPerPoll = 64; // cap processed events per frame
     int processed = 0;
     while (processed < kMaxPerPoll && enet_host_service(host_, &event, 0) > 0)
     {

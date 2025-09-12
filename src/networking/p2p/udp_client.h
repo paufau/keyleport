@@ -20,6 +20,11 @@ namespace p2p
     void send_unreliable(message message);
 
   private:
+    // Channel layout: keep unreliable traffic separate from reliable to
+    // minimize head-of-line blocking when losses occur on the reliable path.
+    static constexpr enet_uint8 kChannelUnreliable = 0;
+    static constexpr enet_uint8 kChannelReliable = 1;
+
     udp_client_configuration config_;
     ENetHost* host_{nullptr};
     ENetPeer* peer_{nullptr};
@@ -35,5 +40,9 @@ namespace p2p
     unsigned long long now_ms() const;
 
     void send_impl(message message, bool is_reliable);
+
+    // Precondition: mutex_ is held by caller; services ENet events with a
+    // small budget to advance acks/timeouts and detect disconnects.
+    void flush_service_events();
   };
 } // namespace p2p

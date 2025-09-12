@@ -241,7 +241,9 @@ namespace p2p
       return;
     }
 
-    if (enet_peer_send(peer_, 0, packet) < 0)
+    const enet_uint8 channel =
+        is_reliable ? kChannelReliable : kChannelUnreliable;
+    if (enet_peer_send(peer_, channel, packet) < 0)
     {
       enet_packet_destroy(packet);
       // keep state as-is; no reconnects here
@@ -257,9 +259,33 @@ namespace p2p
   void udp_client::flush_pending_messages()
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (host_)
+    if (!host_)
     {
-      enet_host_flush(host_);
+      return;
+    }
+
+    flush_service_events();
+    enet_host_flush(host_);
+  }
+
+  void udp_client::flush_service_events()
+  {
+    // Assumes mutex_ is already held and host_ is non-null
+    ENetEvent ev;
+    int budget = 16; // small budget per tick
+    while (budget-- > 0 && enet_host_service(host_, &ev, 0) > 0)
+    {
+      if (ev.type == ENET_EVENT_TYPE_DISCONNECT)
+      {
+        std::cerr << "[udp_client] Detected disconnect during flush"
+                  << std::endl;
+        if (peer_)
+        {
+          enet_peer_reset(peer_);
+          peer_ = nullptr;
+        }
+      }
+      // ignore CONNECT/RECEIVE here; client has no external handlers
     }
   }
 
