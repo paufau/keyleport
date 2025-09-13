@@ -31,7 +31,6 @@ void HomeScene::didMount()
       discovery_service_);
 
   communication_service_ = std::make_shared<services::communication_service>();
-
   services::service_locator::instance().repository.add_service(
       communication_service_);
 

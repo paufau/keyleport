@@ -1,0 +1,44 @@
+name: build-linux
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          # Build essentials, CMake, Ninja, and pkg-config for finding SDL3
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            libsdl3-dev
+
+      - name: Restore CMake/Ninja build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+          key: ${{ runner.os }}-build-ninja-release-linux-v1
+          restore-keys: |
+            ${{ runner.os }}-build-ninja-release-
+            ${{ runner.os }}-build-
+
+      - name: Configure (CMake + Ninja)
+        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (script)
+        run: ./scripts/compile.sh -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyleport-linux
+          path: |
+            build/keyleport
+          retention-days: 5
