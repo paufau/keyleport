@@ -37,8 +37,8 @@ namespace services
     void broadcast_own_state(bool force = false);
     void update_connection_candidates();
 
-  // Remove a peer (and its timestamp) by device id. Returns true if found.
-  bool remove_peer_by_device_id(const std::string& device_id);
+    // Remove a peer (and its timestamp) by device id. Returns true if found.
+    bool remove_peer_by_device_id(const std::string& device_id);
 
     uint64_t last_broadcast_time_ms_ = 0;
     int state_broadcast_interval_ms_ = 5000;
