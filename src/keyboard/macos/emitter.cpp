@@ -27,7 +27,7 @@ namespace keyboard
       // macOS global coordinates use origin at bottom-left; SDL dy>0 is down.
       // Subtract dy so a positive dy (down) lowers the on-screen cursor.
       CGPoint p = current_cursor_pos();
-      CGPoint np = CGPointMake(p.x + dx, p.y - dy);
+      CGPoint np = CGPointMake(p.x + dx, p.y + dy);
       CGEventRef move = CGEventCreateMouseEvent(nullptr, kCGEventMouseMoved, np,
                                                 kCGMouseButtonLeft);
       if (move)
