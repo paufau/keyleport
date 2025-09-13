@@ -28,7 +28,7 @@ jobs:
           # Build essentials, CMake, Ninja, pkg-config, and autotools for vcpkg ports
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config \
-            autoconf automake libtool m4
+            autoconf automake libtool libtool-bin m4 gettext gperf
 
       - name: Install vcpkg (clone + bootstrap)
         shell: bash
