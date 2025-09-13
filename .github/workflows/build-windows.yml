@@ -3,6 +3,14 @@ name: build-windows
 on:
   workflow_dispatch:
   workflow_call:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build-windows.yml'
+      - 'scripts/compile.sh'
 
 jobs:
   build:
