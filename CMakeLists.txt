@@ -236,6 +236,11 @@ if(TARGET imgui_backend_sdl3)
   target_link_libraries(keyleport PRIVATE imgui_backend_sdl3)
 endif()
 
+# macOS: link CoreGraphics/ApplicationServices for CGEvent-based emitter
+if(APPLE)
+  target_link_libraries(keyleport PRIVATE "-framework CoreGraphics" "-framework ApplicationServices")
+endif()
+
 # Install and package (bundle SDL3 on Windows)
 install(TARGETS keyleport RUNTIME DESTINATION .)
 if(WIN32)
