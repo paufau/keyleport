@@ -89,10 +89,8 @@ keyleport_select_platform_impl(KEYLEPORT_SOURCES)
 # Device-name sources are self-gated with preprocessor guards per platform,
 # so we don't need to filter them here.
 
-# Windows: SDL3 is required; provide SDL3_DIR or CMAKE_PREFIX_PATH
-if(WIN32)
-  find_package(SDL3 CONFIG REQUIRED)
-endif()
+# Try config package first (works with vcpkg on Windows/Linux/macOS)
+find_package(SDL3 CONFIG QUIET)
 
 add_executable(keyleport ${KEYLEPORT_SOURCES})
 list(LENGTH KEYLEPORT_SOURCES _kp_src_len)
@@ -100,7 +98,7 @@ kp_log("Target 'keyleport' created with ${_kp_src_len} sources")
 
 target_include_directories(keyleport PRIVATE src)
 
-if(APPLE OR UNIX)
+if((APPLE OR UNIX) AND (NOT TARGET SDL3::SDL3) AND (NOT SDL3_FOUND))
   find_package(PkgConfig QUIET)
   if(PkgConfig_FOUND)
     kp_log("Checking SDL3 via pkg-config")
