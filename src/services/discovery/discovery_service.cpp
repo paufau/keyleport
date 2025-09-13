@@ -47,6 +47,26 @@ void services::discovery_service::remove_stale_peers()
   }
 }
 
+bool services::discovery_service::remove_peer_by_device_id(
+    const std::string& device_id)
+{
+  auto it = std::find_if(discovered_peers.begin(), discovered_peers.end(),
+                         [&device_id](const discovery_peer& p)
+                         { return p.device_id == device_id; });
+  if (it == discovered_peers.end())
+  {
+    return false;
+  }
+  size_t index = std::distance(discovered_peers.begin(), it);
+  discovered_peers.erase(it);
+  if (index < peer_last_seen_timestamps_.size())
+  {
+    peer_last_seen_timestamps_.erase(peer_last_seen_timestamps_.begin() +
+                                     index);
+  }
+  return true;
+}
+
 bool services::discovery_service::update_peer_state(discovery_peer& peer)
 {
   auto it = std::find_if(discovered_peers.begin(), discovered_peers.end(),
@@ -139,6 +159,16 @@ void services::discovery_service::init()
           return;
         }
 
+        // If a peer declares it has gone, remove it immediately and update UI
+        if (peer.state == discovery_peer_state::gone)
+        {
+          if (remove_peer_by_device_id(peer.device_id))
+          {
+            update_connection_candidates();
+          }
+          return;
+        }
+
         bool is_new = update_peer_state(peer);
         // Update UI candidates right away so the device appears instantly.
         update_connection_candidates();
@@ -171,6 +201,14 @@ void services::discovery_service::update()
 
 void services::discovery_service::cleanup()
 {
+  // Advertise that we're going away so others can prune us immediately
+  if (broadcast_client_)
+  {
+    auto previous_state = self_peer.state;
+    self_peer.state = discovery_peer_state::gone;
+    broadcast_own_state(true);
+  }
+
   broadcast_server_.reset();
   broadcast_client_.reset();
   discovered_peers.clear();

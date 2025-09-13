@@ -8,7 +8,8 @@ namespace services
   enum class discovery_peer_state
   {
     idle,
-    busy
+    busy,
+    gone
   };
 
   struct discovery_peer
@@ -49,7 +50,8 @@ namespace services
       {
         int sv = j.value("state", 0);
         if (sv == static_cast<int>(discovery_peer_state::idle) ||
-            sv == static_cast<int>(discovery_peer_state::busy))
+            sv == static_cast<int>(discovery_peer_state::busy) ||
+            sv == static_cast<int>(discovery_peer_state::gone))
         {
           p.state = static_cast<discovery_peer_state>(sv);
         }
