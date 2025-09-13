@@ -7,9 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      VCPKG_ROOT: "${{ github.workspace }}/vcpkg"
-      VCPKG_DEFAULT_BINARY_CACHE: "${{ github.workspace }}/vcpkg/binary_cache"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,40 +16,13 @@ jobs:
           sudo apt-get update
           # Build essentials, CMake, Ninja, and pkg-config
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build pkg-config
+            build-essential cmake ninja-build pkg-config software-properties-common
 
-      - name: Install vcpkg (clone + bootstrap)
-        shell: bash
+      - name: Install SDL3 via PPA
         run: |
-          git clone https://github.com/microsoft/vcpkg.git
-          ./vcpkg/bootstrap-vcpkg.sh
-
-      - name: Restore vcpkg cache (installed & downloads)
-        uses: actions/cache@v4
-        with:
-          path: |
-            vcpkg/installed
-            vcpkg/downloads
-          key: ${{ runner.os }}-vcpkg-sdl3-x64-linux
-          restore-keys: |
-            ${{ runner.os }}-vcpkg-
-
-      - name: Restore vcpkg binary cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            vcpkg/binary_cache
-          key: ${{ runner.os }}-vcpkg-bincache-sdl3-x64-linux
-          restore-keys: |
-            ${{ runner.os }}-vcpkg-bincache-
-
-      - name: Ensure vcpkg binary cache dir exists
-        shell: bash
-        run: mkdir -p ./vcpkg/binary_cache
-
-      - name: Install SDL3 with vcpkg
-        shell: bash
-        run: ./vcpkg/vcpkg --vcpkg-root ./vcpkg install sdl3 --triplet x64-linux
+          sudo add-apt-repository -y ppa:sev-s/sdl3
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libsdl3-dev
 
       - name: Restore CMake/Ninja build cache
         uses: actions/cache@v4
@@ -65,10 +35,10 @@ jobs:
             ${{ runner.os }}-build-
 
       - name: Configure (CMake + Ninja)
-        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+        run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
       - name: Build (script)
-        run: ./scripts/compile.sh -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+        run: ./scripts/compile.sh -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
