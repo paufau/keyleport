@@ -1,9 +1,10 @@
 #if defined(__APPLE__)
 #include "../emitter.h"
 
+#include "../mapping/hid_to_mac.h"
+
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreGraphics/CoreGraphics.h>
-#include "../mapping/hid_to_mac.h"
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -24,7 +25,7 @@ namespace keyboard
     inline void post_mouse_move_relative(int dx, int dy)
     {
       // macOS global coordinates use origin at bottom-left; SDL dy>0 is down.
-      // Subtract dy to convert SDL's down-positive to mac's up-positive.
+      // Subtract dy so a positive dy (down) lowers the on-screen cursor.
       CGPoint p = current_cursor_pos();
       CGPoint np = CGPointMake(p.x + dx, p.y - dy);
       CGEventRef move = CGEventCreateMouseEvent(nullptr, kCGEventMouseMoved, np,
@@ -69,10 +70,8 @@ namespace keyboard
     inline void post_scroll(int dx, int dy)
     {
       // Use line-based scrolling (1 or -1 typical units). SDL dy>0 = scroll up.
-      CGEventRef ev = CGEventCreateScrollWheelEvent(nullptr,
-                                                    kCGScrollEventUnitLine,
-                                                    2 /*vertical,horizontal*/,
-                                                    dy, dx);
+      CGEventRef ev = CGEventCreateScrollWheelEvent(
+          nullptr, kCGScrollEventUnitLine, 2 /*vertical,horizontal*/, dy, dx);
       if (ev)
       {
         CGEventPost(kCGHIDEventTap, ev);
