@@ -17,12 +17,12 @@ This project is fully developed and maintained thanks to the generous support of
 
 | Can do / OS      | MacOS | Windows | Linux |
 | ---------------- | ----- | ------- | ----- |
-| Send TCP/UDP     | ✅    | ✅      | ❌    |
-| Receive TCP/UDP  | ✅    | ✅      | ❌    |
-| Discover Servers | ✅    | ✅      | ❌    |
-| Capture Input    | ✅    | ❌      | ❌    |
-| Emulate Input    | ❌    | ✅      | ❌    |
-| Display UI       | ✅    | ✅      | ❌    |
+| Send UDP         | ✅    | ✅      | ❌    |
+| Receive UDP      | ✅    | ✅      | ❌    |
+| Discover Servers | ✅    | ✅      | ✅    |
+| Capture Input    | ✅    | ✅      | ✅    |
+| Emulate Input    | ✅    | ✅      | ❌    |
+| Display UI       | ✅    | ✅      | ✅    |
 
 ## High-level architecture
 
